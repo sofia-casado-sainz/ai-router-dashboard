@@ -1,21 +1,18 @@
 "use client";
 
 import { useChatRouter } from "@/hooks/useChatRouter";
+import BackendStatus from "./BackendStatus";
 import ChatHistory from "./ChatHistory";
 import ChatInput from "./ChatInput";
 
-/** Contenedor del Chat Router: conecta el estado con historial y entrada. */
+/** Contenedor del Chat Router: conecta el estado (backend real) con historial y entrada. */
 export default function ChatPanel() {
-  const { messages, isRouting, sendMessage, reset } = useChatRouter();
+  const { messages, isRouting, sendMessage, retry, reset } = useChatRouter();
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-white/[0.06] bg-zinc-900/30">
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-white/[0.06] px-4">
-        <div className="flex items-center gap-2 text-sm">
-          <span className="h-2 w-2 rounded-full bg-emerald-400" aria-hidden />
-          <span className="font-medium text-zinc-200">Router activo</span>
-          <span className="hidden text-zinc-500 sm:inline">· selección automática de modelo</span>
-        </div>
+        <BackendStatus />
         {messages.length > 0 && (
           <button
             type="button"
@@ -27,7 +24,12 @@ export default function ChatPanel() {
         )}
       </div>
 
-      <ChatHistory messages={messages} isRouting={isRouting} onSuggestion={sendMessage} />
+      <ChatHistory
+        messages={messages}
+        isRouting={isRouting}
+        onSuggestion={sendMessage}
+        onRetry={retry}
+      />
       <ChatInput onSend={sendMessage} disabled={isRouting} />
     </div>
   );

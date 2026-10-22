@@ -10,9 +10,15 @@ interface ChatHistoryProps {
   messages: Message[];
   isRouting: boolean;
   onSuggestion: (prompt: string) => void;
+  onRetry: (errorId: string) => void;
 }
 
-export default function ChatHistory({ messages, isRouting, onSuggestion }: ChatHistoryProps) {
+export default function ChatHistory({
+  messages,
+  isRouting,
+  onSuggestion,
+  onRetry,
+}: ChatHistoryProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Mantener visible el último mensaje.
@@ -32,7 +38,11 @@ export default function ChatHistory({ messages, isRouting, onSuggestion }: ChatH
     <div className="flex-1 overflow-y-auto" aria-live="polite">
       <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6">
         {messages.map((message) => (
-          <ChatMessage key={message.id} message={message} />
+          <ChatMessage
+            key={message.id}
+            message={message}
+            onRetry={isRouting ? undefined : onRetry}
+          />
         ))}
         {isRouting && <TypingIndicator />}
         <div ref={bottomRef} />

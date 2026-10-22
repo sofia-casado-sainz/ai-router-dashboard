@@ -68,7 +68,7 @@ export default function ChatInput({ onSend, disabled = false }: ChatInputProps) 
         </button>
       </div>
       <p className="mx-auto mt-2 max-w-3xl text-center text-[11px] text-zinc-600">
-        Modo simulación · Las respuestas y costes son datos mock.
+        La selección de modelo la decide el backend · Costes estimados.
       </p>
     </form>
   );

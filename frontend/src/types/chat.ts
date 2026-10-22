@@ -45,4 +45,11 @@ export interface RouterMessage extends BaseMessage {
   content: string;
 }
 
-export type Message = UserMessage | RouterMessage;
+export interface ErrorMessage extends BaseMessage {
+  role: "error";
+  content: string;
+  /** Prompt que falló, para poder reintentarlo. */
+  prompt: string;
+}
+
+export type Message = UserMessage | RouterMessage | ErrorMessage;
