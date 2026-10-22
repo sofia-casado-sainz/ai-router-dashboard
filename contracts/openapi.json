@@ -1,0 +1,250 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "AI Router API",
+    "description": "Backend del AI Router Dashboard: selección automática de modelos de IA.",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Get Health",
+        "operationId": "get_health",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/route": {
+      "post": {
+        "tags": [
+          "router"
+        ],
+        "summary": "Route Prompt",
+        "description": "Analiza el prompt y devuelve el modelo seleccionado (simulado).",
+        "operationId": "route_prompt",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RouteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "HealthResponse"
+      },
+      "ModelId": {
+        "type": "string",
+        "enum": [
+          "claude-sonnet",
+          "gemini",
+          "gpt",
+          "deepseek"
+        ],
+        "title": "ModelId"
+      },
+      "RouteRequest": {
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Prompt",
+            "description": "Prompt del usuario."
+          }
+        },
+        "type": "object",
+        "required": [
+          "prompt"
+        ],
+        "title": "RouteRequest",
+        "examples": [
+          {
+            "prompt": "Diseña una arquitectura SaaS"
+          }
+        ]
+      },
+      "RouteResponse": {
+        "properties": {
+          "selected_model": {
+            "$ref": "#/components/schemas/ModelId"
+          },
+          "complexity": {
+            "type": "integer",
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Complexity"
+          },
+          "estimated_cost": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Estimated Cost",
+            "description": "Coste estimado en €."
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "model_name": {
+            "type": "string",
+            "title": "Model Name"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "estimated_tokens": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Estimated Tokens"
+          },
+          "matched_keywords": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Matched Keywords"
+          },
+          "is_fallback": {
+            "type": "boolean",
+            "title": "Is Fallback"
+          }
+        },
+        "type": "object",
+        "required": [
+          "selected_model",
+          "complexity",
+          "estimated_cost",
+          "reason",
+          "model_name",
+          "provider",
+          "estimated_tokens",
+          "matched_keywords",
+          "is_fallback"
+        ],
+        "title": "RouteResponse",
+        "examples": [
+          {
+            "complexity": 8,
+            "estimated_cost": 0.0181,
+            "estimated_tokens": 1207,
+            "is_fallback": false,
+            "matched_keywords": [
+              "arquitectura"
+            ],
+            "model_name": "Claude Sonnet",
+            "provider": "Anthropic",
+            "reason": "Arquitectura software avanzada",
+            "selected_model": "claude-sonnet"
+          }
+        ]
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

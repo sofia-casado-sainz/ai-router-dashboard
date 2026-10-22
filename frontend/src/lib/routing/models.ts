@@ -1,39 +1,11 @@
-import type { AIModel, ModelId } from "@/types/chat";
+export interface ModelStyles {
+  dot: string;
+  badge: string;
+  accent: string;
+}
 
-/** Catálogo simulado de modelos. Precios ficticios, solo para la demo. */
-export const MODELS: Record<ModelId, AIModel> = {
-  "claude-sonnet": {
-    id: "claude-sonnet",
-    name: "Claude Sonnet",
-    provider: "Anthropic",
-    pricePer1kTokens: 0.015,
-    tagline: "Razonamiento profundo y arquitectura",
-  },
-  gemini: {
-    id: "gemini",
-    name: "Gemini",
-    provider: "Google",
-    pricePer1kTokens: 0.005,
-    tagline: "Investigación y contexto largo",
-  },
-  gpt: {
-    id: "gpt",
-    name: "GPT",
-    provider: "OpenAI",
-    pricePer1kTokens: 0.01,
-    tagline: "Código y propósito general",
-  },
-  deepseek: {
-    id: "deepseek",
-    name: "DeepSeek",
-    provider: "DeepSeek",
-    pricePer1kTokens: 0.001,
-    tagline: "Tareas cortas al mínimo coste",
-  },
-};
-
-/** Clases de Tailwind por modelo (literales para que Tailwind las detecte). */
-export const MODEL_STYLES: Record<ModelId, { dot: string; badge: string; accent: string }> = {
+/** Clases de Tailwind por id de modelo (literales para que Tailwind las detecte). Solo presentación. */
+const MODEL_STYLES: Record<string, ModelStyles> = {
   "claude-sonnet": {
     dot: "bg-orange-400",
     badge: "bg-orange-500/10 text-orange-300 ring-orange-500/20",
@@ -55,3 +27,14 @@ export const MODEL_STYLES: Record<ModelId, { dot: string; badge: string; accent:
     accent: "from-violet-500/15",
   },
 };
+
+const DEFAULT_STYLES: ModelStyles = {
+  dot: "bg-zinc-400",
+  badge: "bg-white/[0.04] text-zinc-300 ring-white/[0.08]",
+  accent: "from-white/[0.04]",
+};
+
+/** Estilos del modelo; si el backend devuelve uno nuevo, usa un estilo neutro en lugar de romper. */
+export function getModelStyles(modelId: string): ModelStyles {
+  return MODEL_STYLES[modelId] ?? DEFAULT_STYLES;
+}

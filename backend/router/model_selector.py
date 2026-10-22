@@ -10,23 +10,8 @@ from __future__ import annotations
 import math
 import unicodedata
 from dataclasses import dataclass
-from enum import StrEnum
 
-
-class ModelId(StrEnum):
-    CLAUDE_SONNET = "claude-sonnet"
-    GEMINI = "gemini"
-    GPT = "gpt"
-    DEEPSEEK = "deepseek"
-
-
-@dataclass(frozen=True, slots=True)
-class ModelInfo:
-    id: ModelId
-    name: str
-    provider: str
-    # Precio simulado en € por cada 1.000 tokens.
-    price_per_1k_tokens: float
+from router.catalog import ModelId, ModelInfo, get_model
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,13 +35,6 @@ class RoutingDecision:
     def is_fallback(self) -> bool:
         return not self.matched_keywords
 
-
-MODELS: dict[ModelId, ModelInfo] = {
-    ModelId.CLAUDE_SONNET: ModelInfo(ModelId.CLAUDE_SONNET, "Claude Sonnet", "Anthropic", 0.015),
-    ModelId.GEMINI: ModelInfo(ModelId.GEMINI, "Gemini", "Google", 0.005),
-    ModelId.GPT: ModelInfo(ModelId.GPT, "GPT", "OpenAI", 0.01),
-    ModelId.DEEPSEEK: ModelInfo(ModelId.DEEPSEEK, "DeepSeek", "DeepSeek", 0.001),
-}
 
 ROUTING_RULES: tuple[RoutingRule, ...] = (
     RoutingRule(
@@ -122,7 +100,7 @@ def select_model(prompt: str) -> RoutingDecision:
 
 
 def _build_decision(rule: RoutingRule, prompt: str, matched: list[str]) -> RoutingDecision:
-    model = MODELS[rule.model_id]
+    model = get_model(rule.model_id)
     complexity = estimate_complexity(rule.base_complexity, prompt)
     input_tokens = math.ceil(len(prompt) / CHARS_PER_TOKEN)
     estimated_tokens = input_tokens + complexity * OUTPUT_TOKENS_PER_COMPLEXITY

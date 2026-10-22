@@ -20,14 +20,14 @@ client = TestClient(app)
     ],
 )
 def test_route_selects_expected_model(prompt: str, expected_model: str) -> None:
-    response = client.post("/route", json={"prompt": prompt})
+    response = client.post("/api/v1/route", json={"prompt": prompt})
 
     assert response.status_code == 200
     assert response.json()["selected_model"] == expected_model
 
 
 def test_route_architecture_example() -> None:
-    body = client.post("/route", json={"prompt": "Diseña una arquitectura SaaS"}).json()
+    body = client.post("/api/v1/route", json={"prompt": "Diseña una arquitectura SaaS"}).json()
 
     assert body["selected_model"] == "claude-sonnet"
     assert body["complexity"] == 8
@@ -38,7 +38,7 @@ def test_route_architecture_example() -> None:
 
 
 def test_route_fallback_is_flagged() -> None:
-    body = client.post("/route", json={"prompt": "Hola"}).json()
+    body = client.post("/api/v1/route", json={"prompt": "Hola"}).json()
 
     assert body["is_fallback"] is True
     assert body["matched_keywords"] == []
@@ -46,4 +46,4 @@ def test_route_fallback_is_flagged() -> None:
 
 @pytest.mark.parametrize("payload", [{}, {"prompt": ""}, {"prompt": "   "}])
 def test_route_rejects_empty_prompt(payload: dict) -> None:
-    assert client.post("/route", json=payload).status_code == 422
+    assert client.post("/api/v1/route", json=payload).status_code == 422

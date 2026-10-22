@@ -29,10 +29,9 @@ export function formatTime(date: Date) {
   return new Intl.DateTimeFormat(LOCALE, { hour: "2-digit", minute: "2-digit" }).format(date);
 }
 
-export function formatPercent(value: number, { signed = false } = {}) {
+export function formatPercent(value: number) {
   return new Intl.NumberFormat(LOCALE, {
     style: "percent",
     maximumFractionDigits: 1,
-    signDisplay: signed ? "exceptZero" : "auto",
   }).format(value / 100);
 }

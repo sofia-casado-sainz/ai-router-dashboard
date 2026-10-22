@@ -1,21 +1,8 @@
-export type ModelId = "claude-sonnet" | "gemini" | "gpt" | "deepseek";
-
+/** Modelo elegido por el router; todos los campos vienen del backend. */
 export interface AIModel {
-  id: ModelId;
+  id: string;
   name: string;
   provider: string;
-  /** Precio simulado en € por cada 1.000 tokens. */
-  pricePer1kTokens: number;
-  tagline: string;
-}
-
-export interface RoutingRule {
-  id: string;
-  modelId: ModelId;
-  keywords: string[];
-  reason: string;
-  /** Complejidad base (1-10) asociada a este tipo de tarea. */
-  baseComplexity: number;
 }
 
 export interface RoutingDecision {

@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field
 
-from router.model_selector import ModelId
+from router.catalog import ModelId
 
 
 class RouteRequest(BaseModel):

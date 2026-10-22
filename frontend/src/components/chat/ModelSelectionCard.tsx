@@ -1,12 +1,12 @@
 import { formatCost, formatCompactNumber } from "@/lib/format";
-import { MODEL_STYLES } from "@/lib/routing/models";
+import { getModelStyles } from "@/lib/routing/models";
 import { cn } from "@/lib/utils";
 import type { RoutingDecision } from "@/types/chat";
 import ComplexityMeter from "./ComplexityMeter";
 
 export default function ModelSelectionCard({ decision }: { decision: RoutingDecision }) {
   const { model } = decision;
-  const styles = MODEL_STYLES[model.id];
+  const styles = getModelStyles(model.id);
 
   return (
     <div

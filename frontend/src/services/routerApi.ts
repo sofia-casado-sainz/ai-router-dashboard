@@ -1,19 +1,6 @@
-import { API_TIMEOUT_MS, API_URL } from "@/lib/config";
-import { MODELS } from "@/lib/routing/models";
-import type { AIModel, ModelId, RoutingDecision } from "@/types/chat";
-
-/** Contrato de POST /route tal y como lo devuelve FastAPI (snake_case). */
-interface RouteApiResponse {
-  selected_model: ModelId;
-  complexity: number;
-  estimated_cost: number;
-  reason: string;
-  model_name: string;
-  provider: string;
-  estimated_tokens: number;
-  matched_keywords: string[];
-  is_fallback: boolean;
-}
+import { API_PREFIX, API_TIMEOUT_MS, API_URL } from "@/lib/config";
+import type { HealthResponse, RouteRequest, RouteResponse } from "@/types/api";
+import type { RoutingDecision } from "@/types/chat";
 
 export class ApiError extends Error {
   constructor(
@@ -30,10 +17,22 @@ function withTimeout(signal?: AbortSignal) {
   return signal ? AbortSignal.any([signal, timeout]) : timeout;
 }
 
+/** Extrae un mensaje legible del `detail` de FastAPI (texto o lista de errores de validación 422). */
+function parseErrorDetail(detail: unknown): string | null {
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map((item: { msg?: unknown }) => (typeof item?.msg === "string" ? item.msg : null))
+      .filter(Boolean);
+    return messages.length > 0 ? messages.join(" · ") : null;
+  }
+  return null;
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(`${API_URL}${path}`, {
+    response = await fetch(`${API_URL}${API_PREFIX}${path}`, {
       ...init,
       headers: { "Content-Type": "application/json", ...init.headers },
       signal: withTimeout(init.signal ?? undefined),
@@ -50,9 +49,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!response.ok) {
     const detail = await response
       .json()
-      .then((body: { detail?: unknown }) =>
-        typeof body.detail === "string" ? body.detail : null,
-      )
+      .then((body: { detail?: unknown }) => parseErrorDetail(body.detail))
       .catch(() => null);
     throw new ApiError(detail ?? `Error del backend (HTTP ${response.status}).`, response.status);
   }
@@ -60,27 +57,17 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-function toAIModel(data: RouteApiResponse): AIModel {
-  const known = MODELS[data.selected_model];
-  return {
-    id: data.selected_model,
-    name: data.model_name,
-    provider: data.provider,
-    pricePer1kTokens: known?.pricePer1kTokens ?? 0,
-    tagline: known?.tagline ?? "",
-  };
-}
-
 /** Envía el prompt al router del backend y devuelve la decisión tipada. */
 export async function routePrompt(prompt: string, signal?: AbortSignal): Promise<RoutingDecision> {
-  const data = await request<RouteApiResponse>("/route", {
+  const body: RouteRequest = { prompt };
+  const data = await request<RouteResponse>("/route", {
     method: "POST",
-    body: JSON.stringify({ prompt }),
+    body: JSON.stringify(body),
     signal,
   });
 
   return {
-    model: toAIModel(data),
+    model: { id: data.selected_model, name: data.model_name, provider: data.provider },
     reason: data.reason,
     matchedKeywords: data.matched_keywords,
     complexity: data.complexity,
@@ -93,7 +80,7 @@ export async function routePrompt(prompt: string, signal?: AbortSignal): Promise
 /** Devuelve true si GET /health responde correctamente. */
 export async function checkHealth(signal?: AbortSignal): Promise<boolean> {
   try {
-    const data = await request<{ status: string }>("/health", { signal });
+    const data = await request<HealthResponse>("/health", { signal });
     return data.status === "ok";
   } catch {
     return false;
