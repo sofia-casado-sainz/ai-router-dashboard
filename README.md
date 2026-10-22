@@ -1,155 +1,186 @@
 # AI Router Dashboard
 
-Router inteligente de IA: analiza cada prompt y elige automáticamente el modelo más adecuado (GPT, Claude, Gemini, DeepSeek y, más adelante, modelos locales con Ollama) según coste, calidad y complejidad. Incluye un dashboard para controlar consumo, coste y ahorro.
+**Escribes una tarea y el sistema decide qué modelo de IA debe resolverla, según coste, calidad, complejidad y privacidad.**
 
-> **Estado actual (Sprint S0, Fundaciones).** El enrutado está **simulado** con reglas de palabras clave y precios ficticios. Todavía no se llama a ningún proveedor de IA, no hay base de datos conectada ni autenticación. Las métricas del dashboard son datos de ejemplo.
+![Estado](https://img.shields.io/badge/estado-prototipo_funcional-orange)
+![Next.js](https://img.shields.io/badge/Next.js-16-black)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688)
+![Python](https://img.shields.io/badge/Python-3.11+-3776AB)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6)
 
-## Arquitectura actual
+> **Estado actual.** El flujo completo funciona de extremo a extremo: interfaz → API → motor de enrutado → decisión explicada en pantalla. Lo que todavía no es real: la decisión se toma con reglas (no con un clasificador), los precios son simulados y las métricas del dashboard son datos de ejemplo. Aún no se llama a ningún proveedor de IA. Lo detallo más abajo, en [Qué funciona hoy](#qué-funciona-hoy).
 
+---
+
+## El problema
+
+Hoy hay decenas de modelos de IA útiles, y elegir cuál usar para cada tarea se ha convertido en un problema en sí mismo.
+
+GPT, Claude, Gemini y DeepSeek tienen precios, ventanas de contexto y puntos fuertes distintos. A eso se suman los modelos que puedes ejecutar en tu propia máquina con Ollama, que no cuestan nada por petición pero no siempre llegan al mismo nivel.
+
+En la práctica, la mayoría de equipos hace una de estas dos cosas:
+
+- **Usar siempre el modelo más potente**, y pagar precio premium por resumir un correo.
+- **Usar siempre el más barato**, y aceptar malas respuestas en las tareas que de verdad importan.
+
+Ninguna de las dos es una decisión: es la ausencia de una. Este proyecto intenta que esa elección sea automática, medible y explicable.
+
+## Por qué lo estoy construyendo
+
+<!-- Esta sección es personal: ajústala con tus propias palabras y experiencias. -->
+
+Empecé este proyecto porque tenía el problema delante cada día: varias pestañas abiertas con distintos asistentes y ningún criterio claro para decidir a cuál preguntar qué. Me di cuenta de que "qué modelo uso" es, en el fondo, un problema de ingeniería: hay restricciones (presupuesto, privacidad, latencia), hay incertidumbre (¿es esta tarea difícil?) y hay que tomar una decisión en milisegundos.
+
+Quería un proyecto que me obligara a pensar como se piensa un producto real, no solo a programar pantallas:
+
+- **Arquitectura full stack de verdad**: un frontend y un backend separados, con un contrato entre ellos que no se rompa en silencio.
+- **El routing como problema de decisión**: cómo estimar la complejidad de una tarea, cómo comparar calidad y coste, y cómo explicar al usuario por qué se eligió un modelo.
+- **Diseñar para crecer**: configuración, logging, versionado de API e infraestructura antes de que sean un problema.
+
+## Cómo funciona
+
+```mermaid
+flowchart LR
+    U([Usuario]) --> FE[Frontend<br/>Next.js]
+    FE -->|POST /api/v1/route| BE[Backend<br/>FastAPI]
+    BE --> RE{{Motor de<br/>enrutado}}
+    RE --> CAT[(Catálogo<br/>de modelos)]
+    RE -. próximamente .-> OR[OpenRouter<br/>GPT · Claude · Gemini · DeepSeek]
+    RE -. próximamente .-> OL[Ollama<br/>modelos locales]
+    BE -. próximamente .-> DB[(PostgreSQL)]
 ```
-Navegador ──► Frontend (Next.js 16, :3000)
-                 │  fetch  {API_URL}/api/v1/...
-                 ▼
-              Backend (FastAPI, :8010)
-                 api/routes ──► services ──► router (reglas + catálogo de modelos)
 
-              PostgreSQL 17 (:5432): solo infraestructura, aún sin conectar
+<sub>Líneas continuas: funciona hoy. Discontinuas: diseñado, pendiente de implementar.</sub>
+
+- **Frontend (Next.js).** La parte que ve el usuario: un chat donde escribes la tarea y un dashboard de consumo y costes. Cada respuesta muestra *qué* modelo se eligió y *por qué*: complejidad estimada, coste previsto y el motivo de la decisión.
+- **Backend (FastAPI).** Recibe la petición, la valida y se la pasa al motor de enrutado. Expone una API versionada (`/api/v1`) y documentada automáticamente con OpenAPI.
+- **Motor de enrutado.** El corazón del proyecto. Hoy analiza el prompt con reglas y estima su complejidad y su coste. El objetivo es que filtre los modelos válidos (contexto, privacidad, presupuesto) y puntúe los candidatos equilibrando calidad, coste y latencia.
+- **Base de datos (PostgreSQL).** Ya está preparada en Docker. Guardará el catálogo de modelos y sus precios, el historial de peticiones y el consumo real por equipo.
+- **Proveedores de IA.** OpenRouter dará acceso a los modelos comerciales con una sola integración, y Ollama a los modelos locales. Los dos hablan el mismo protocolo (compatible con OpenAI), así que un único adaptador sirve para ambos.
+
+Así es una decisión real del sistema hoy:
+
+```text
+Prompt:  "Diseña una arquitectura cloud escalable"
+
+Modelo:       Claude Sonnet (Anthropic)
+Complejidad:  8/10
+Coste:        ~0,018 € · 1.210 tokens estimados
+Motivo:       Arquitectura software avanzada  [arquitectura]
 ```
 
-| Pieza | Descripción |
-|---|---|
-| **Frontend** | Next.js (App Router), React 19, Tailwind 4. Páginas: Dashboard, Chat Router, Analytics, Models y Settings (estas tres últimas, "Próximamente"). |
-| **Backend** | FastAPI con configuración centralizada (`pydantic-settings`), logging JSON y API versionada en `/api/v1`. |
-| **Catálogo de modelos** | Única fuente de verdad en `backend/router/catalog.py`. El frontend recibe id, nombre y proveedor en cada respuesta y aplica un estilo neutro a modelos que no conoce. |
-| **Contrato** | `contracts/openapi.json`, exportado desde FastAPI (ver [contracts/README.md](contracts/README.md)). |
+## Qué funciona hoy
 
-### Endpoints
+**✅ Implementado**
+- Chat conectado al backend real, con estados de carga, error y reintento.
+- Tarjeta de decisión: modelo, proveedor, complejidad, coste estimado y motivo.
+- Motor de enrutado por reglas, con estimación de complejidad y coste.
+- Catálogo de modelos como única fuente de verdad en el backend. La interfaz no se rompe si aparece un modelo nuevo.
+- API versionada (`/api/v1`), configuración centralizada y logs estructurados en JSON.
+- Contrato OpenAPI exportado y protegido por un test.
+- Docker Compose con frontend, backend y PostgreSQL.
+- Dashboard con métricas *de ejemplo*: el diseño es real, los datos todavía no.
 
-| Método | Ruta | Descripción |
+**🚧 En desarrollo**
+- Persistencia en PostgreSQL y catálogo de modelos con precios reales.
+- Tipos TypeScript generados automáticamente desde OpenAPI.
+
+**🎯 Objetivos**
+- Respuestas reales vía OpenRouter, con streaming.
+- Modelos locales con Ollama y una política de privacidad del tipo "lo sensible no sale de mi máquina".
+- Motor de puntuación coste / calidad / latencia, configurable por equipo.
+- Presupuestos con alertas y límite duro, y analítica de ahorro frente a una línea base.
+- Endpoint compatible con OpenAI (`model: "auto"`), para usar el router desde cualquier aplicación existente.
+
+## Decisiones técnicas
+
+No elegí las tecnologías por moda. Esto es lo que me aporta cada una y lo que sacrifico a cambio.
+
+**Next.js.** Me permite tener en un solo proyecto la interfaz y, más adelante, una capa de servidor propia (BFF) para que las claves y sesiones nunca lleguen al navegador. Los componentes de servidor encajan bien con un dashboard que carga datos agregados.
+*Coste:* el framework evoluciona rápido, y algunas cosas (como las variables `NEXT_PUBLIC_*`, que se fijan al compilar) condicionan el despliegue.
+
+**FastAPI (Python).** El ecosistema de IA vive en Python: SDKs, embeddings y clasificadores. Pydantic valida cada petición y genera el esquema OpenAPI sin esfuerzo, y ese esquema es la base del contrato con el frontend.
+*Coste:* dos lenguajes en el mismo producto. Lo compenso con un contrato explícito entre ambos.
+
+**PostgreSQL.** Los datos de este producto son relacionales: organizaciones, peticiones, modelos, precios con histórico. Necesito agregaciones SQL serias para la analítica, Row-Level Security para aislar a cada equipo y, con pgvector, la opción de hacer routing semántico sin añadir otra base de datos.
+*Coste:* más disciplina de esquema y migraciones que una base documental.
+
+**OpenRouter.** Una sola API para acceder a GPT, Claude, Gemini, DeepSeek y muchos más, con un catálogo de precios que se puede sincronizar. Así no tengo que mantener cinco integraciones distintas desde el principio.
+*Coste:* dependencia de un intermediario. Además, OpenRouter tiene su propio enrutado automático, lo que me obliga a tener claro dónde aporta valor este proyecto: políticas, presupuestos, privacidad y decisiones explicables.
+
+**Ollama.** Modelos locales con coste por petición cero y, sobre todo, privacidad: hay datos que no deberían salir nunca de la infraestructura propia. Usa la misma API que OpenRouter, así que el diseño de proveedores no cambia.
+*Coste:* un servicio en la nube no puede alcanzar el `localhost` de un usuario. Por eso hay que pensar el despliegue (self-hosted, túnel o agente) antes de prometer la funcionalidad.
+
+## Roadmap
+
+| Fase | Objetivo | Estado |
 |---|---|---|
-| `GET` | `/api/v1/health` | Estado del servicio → `{"status": "ok"}` |
-| `POST` | `/api/v1/route` | Recibe `{"prompt": "..."}` y devuelve el modelo seleccionado, la complejidad, el coste estimado y el motivo. |
+| **Prototipo** | Chat, dashboard y enrutado por reglas de extremo a extremo | ✅ |
+| **S0 · Fundaciones** | Configuración, logging, `/api/v1`, Docker, contrato OpenAPI | ✅ |
+| **S1 · Persistencia** | PostgreSQL, migraciones, catálogo con precios reales, tipos generados | 🚧 |
+| **S2 · Ejecución real** | OpenRouter, streaming, registro de uso y coste reales | 🎯 |
+| **S3 · Local e híbrido** | Ollama, health checks, cadenas de fallback, política de privacidad | 🎯 |
+| **S4 · Multi-equipo** | Autenticación, organizaciones, API keys, límites de uso | 🎯 |
+| **S5 · Router v2** | Puntuación coste/calidad/latencia, clasificador, evaluación con dataset propio | 🎯 |
+| **S6 · Analítica** | Dashboard real, presupuestos y alertas, ahorro medido | 🎯 |
 
-Documentación interactiva: <http://localhost:8010/docs>.
+## Lecciones aprendidas
 
-## Requisitos
+Algunas cosas que este proyecto me ha enseñado, la mayoría equivocándome primero:
 
-- **Python ≥ 3.11**
-- **Node.js ≥ 20** (recomendado 22) y npm
-- **Docker** con Docker Compose v2 (opcional, para levantarlo todo junto)
+- **Lo difícil del routing es clasificar la tarea, no llamar a la API.** Mi primer motor elige el modelo con palabras clave y gana la primera regla que coincide. Funciona en la demo, pero "resume este bug" acaba en el modelo de programación solo por el orden de las reglas. Es útil como punto de partida, pero no basta para un producto real.
+- **"Ahorro" sin línea base es una métrica de vanidad.** ¿Ahorro respecto a qué? Si no defines contra qué comparas (por ejemplo, "lo que habría costado usar siempre el modelo premium"), el número del dashboard no significa nada.
+- **Sin un dataset de evaluación, "elegir el mejor modelo" no se puede demostrar.** Antes de sofisticar el algoritmo necesito poder medir si una decisión fue buena.
+- **Duplicar datos entre frontend y backend sale caro.** Tenía el catálogo de modelos definido en los dos lados, y un modelo nuevo en el backend rompía la interfaz. Ahora hay una única fuente de verdad, y la UI está diseñada para tolerar lo que no conoce.
+- **Los contratos se rompen en silencio.** Los tipos del frontend se copiaban a mano del backend. Ahora el esquema OpenAPI se exporta y un test falla si se queda desactualizado: prefiero que falle un test a que falle un usuario.
+- **La configuración también tiene un "cuándo".** Las variables públicas de Next.js se incrustan al compilar, no al arrancar. Parece un detalle hasta que despliegas con Docker y la URL del backend está congelada en la imagen.
+- **Las fundaciones son baratas al principio y carísimas después.** Configuración centralizada, logging estructurado y versionado de API me costaron un sprint con dos endpoints. Con veinte habría sido una migración.
 
-## Arranque local
+## Capturas
 
-### 1. Variables de entorno
+<!--
+Guarda las imágenes en docs/screenshots/ y descomenta cada línea:
 
-```bash
-cp .env.example .env                        # backend y docker compose
-cp frontend/.env.example frontend/.env.local
-```
+![Chat Router: decisión explicada](docs/screenshots/chat.png)
+![Dashboard de consumo](docs/screenshots/dashboard.png)
+![Demo: del prompt a la decisión](docs/screenshots/demo.gif)
+-->
 
-| Variable | Uso | Por defecto |
-|---|---|---|
-| `API_URL` | URL del backend vista desde el navegador (sin `/api/v1`). En Docker se pasa al frontend como `NEXT_PUBLIC_API_URL`. | `http://localhost:8010` |
-| `FRONTEND_URL` | Origen del frontend; el backend lo permite en CORS. | `http://localhost:3000` |
-| `ENVIRONMENT` | `development` · `test` · `staging` · `production`. En `development`, `python main.py` usa autoreload. | `development` |
-| `LOG_LEVEL` | `DEBUG` · `INFO` · `WARNING` · `ERROR` · `CRITICAL`. | `INFO` |
-| `CORS_ORIGINS` | Orígenes CORS adicionales, separados por comas. | `http://127.0.0.1:3000` |
-| `HOST` / `PORT` | Dirección del backend en local. | `127.0.0.1` / `8010` |
-| `POSTGRES_*` | Credenciales de PostgreSQL en Docker. `POSTGRES_PASSWORD` es obligatoria. | ver `.env.example` |
+*Próximamente: capturas del chat y del dashboard, y un GIF del flujo completo.*
 
-El backend lee, por orden de prioridad: variables de entorno, `backend/.env`, `.env` de la raíz y los valores por defecto de [`backend/core/config.py`](backend/core/config.py). El frontend usa `frontend/.env.local` (`NEXT_PUBLIC_API_URL`).
+## Cómo ejecutarlo
 
-### 2. Backend
-
-```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-
-python main.py               # http://localhost:8010  (docs en /docs)
-pytest                       # tests
-```
-
-Los logs salen en JSON, una línea por evento:
-
-```json
-{"timestamp": "2026-10-22T11:39:51.854+00:00", "level": "INFO", "module": "main", "logger": "main", "message": "Aplicación iniciada", "environment": "development", "version": "0.1.0"}
-```
-
-### 3. Frontend
+Con Docker:
 
 ```bash
-cd frontend
-npm install
-npm run dev                  # http://localhost:3000
-npm run lint
-npm run build
-```
-
-## Docker Compose
-
-Levanta el frontend, el backend y PostgreSQL:
-
-```bash
-cp .env.example .env         # y define POSTGRES_PASSWORD
+git clone https://github.com/sofia-casado-sainz/ai-router-dashboard.git
+cd ai-router-dashboard
+cp .env.example .env          # define POSTGRES_PASSWORD
 docker compose up --build
 ```
 
-| Servicio | URL |
-|---|---|
-| frontend | <http://localhost:3000> |
-| backend | <http://localhost:8010/docs> |
-| postgres | `localhost:5432` (volumen `postgres-data`) |
+Abre <http://localhost:3000/chat> y prueba con *"Diseña una arquitectura cloud escalable"*. La API está documentada en <http://localhost:8010/docs>.
 
-- `API_URL` se incrusta en el bundle del frontend **al construir la imagen**. Si lo cambias, ejecuta `docker compose build frontend`.
-- PostgreSQL arranca con healthcheck y volumen persistente, pero el backend aún no se conecta a él (Sprint S1).
-
-## Contrato frontend ↔ backend
-
-Tras cambiar un endpoint o schema:
+Sin Docker (Python ≥ 3.11 y Node ≥ 20):
 
 ```bash
-cd backend && python scripts/export_openapi.py   # regenera contracts/openapi.json
+cd backend && python -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]" && python main.py
+
+cd frontend && npm install && npm run dev      # en otra terminal
 ```
 
-Después actualiza [`frontend/src/types/api.ts`](frontend/src/types/api.ts). El test `tests/test_contract.py` falla si el contrato está desactualizado. En el Sprint S1 los tipos TypeScript se generarán automáticamente desde `openapi.json`.
+Variables de entorno, tests, contrato y estructura del código: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
-## Estructura de carpetas
+## Licencia
 
-```
-ai-router-dashboard/
-├── backend/
-│   ├── main.py                  # create_app(): CORS, logging, routers en /api/v1
-│   ├── pyproject.toml           # dependencias y configuración de pytest
-│   ├── Dockerfile
-│   ├── api/routes.py            # endpoints HTTP
-│   ├── core/
-│   │   ├── config.py            # Settings (pydantic-settings)
-│   │   └── logging.py           # formatter JSON
-│   ├── router/
-│   │   ├── catalog.py           # catálogo de modelos (fuente de verdad)
-│   │   └── model_selector.py    # reglas de enrutado y estimación de coste
-│   ├── schemas/                 # modelos Pydantic de entrada/salida
-│   ├── services/                # orquestación entre API y dominio
-│   ├── scripts/export_openapi.py
-│   └── tests/
-├── frontend/
-│   ├── Dockerfile
-│   ├── next.config.ts           # output "standalone" para Docker
-│   └── src/
-│       ├── app/                 # rutas: dashboard, chat, analytics, models, settings
-│       ├── components/          # chat/, dashboard/, layout/
-│       ├── hooks/               # useChatRouter, useBackendHealth, useDisclosure
-│       ├── lib/                 # config, formato, estilos de modelos
-│       ├── services/            # routerApi (backend real), api + mockData (dashboard)
-│       └── types/               # api.ts (contrato HTTP), chat.ts, index.ts
-├── contracts/openapi.json       # contrato OpenAPI exportado del backend
-├── docker-compose.yml
-└── .env.example
-```
+<!-- Elige una licencia y añade el archivo LICENSE (por ejemplo, MIT: https://choosealicense.com/licenses/mit/). -->
+Pendiente de definir.
 
-## Solución de problemas
+## Contacto
 
-- **`pytest` falla al cargar plugins ajenos al proyecto** (por ejemplo, con ROS instalado y su `PYTHONPATH` exportado): ejecuta `PYTHONPATH= pytest`.
-- **El chat muestra "No se pudo conectar con el backend"**: comprueba que el backend está levantado y que `NEXT_PUBLIC_API_URL` apunta a él, sin `/api/v1`.
+Si te interesa el proyecto, tienes preguntas sobre las decisiones de diseño o quieres hablar de una oportunidad, escríbeme.
+
+- **GitHub:** [@sofia-casado-sainz](https://github.com/sofia-casado-sainz)
+- **LinkedIn:** [sofia](https://www.linkedin.com/in/sofia-casado-sainz-4094a028a?utm_source=share_via&utm_content=profile&utm_medium=member_ios)
+
