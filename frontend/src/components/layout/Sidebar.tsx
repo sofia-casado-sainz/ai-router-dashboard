@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { NAV_ITEMS } from "@/lib/navigation";
+import { NAV_ITEMS, UPCOMING_NAV_ITEMS } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import Logo from "./Logo";
 import SidebarNavLink from "./SidebarNavLink";
@@ -74,16 +74,27 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               </li>
             ))}
           </ul>
+
+          <p className="mt-6 px-3 pb-2 text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+            Próximamente
+          </p>
+          <ul className="space-y-1">
+            {UPCOMING_NAV_ITEMS.map((item) => (
+              <li key={item.href}>
+                <SidebarNavLink item={item} onNavigate={onClose} />
+              </li>
+            ))}
+          </ul>
         </nav>
 
         <div className="border-t border-white/[0.06] p-4">
           <div className="flex items-center gap-3 rounded-lg px-2 py-1.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 text-xs font-medium text-zinc-300">
-              SC
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 font-mono text-xs font-medium text-zinc-300">
+              v0
             </span>
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-zinc-200">Mi workspace</p>
-              <p className="truncate text-xs text-zinc-500">Plan Pro · Demo</p>
+              <p className="truncate text-sm font-medium text-zinc-200">Proyecto demo</p>
+              <p className="truncate text-xs text-zinc-500">Router v0 · datos simulados</p>
             </div>
           </div>
         </div>
