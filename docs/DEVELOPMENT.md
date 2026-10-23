@@ -103,12 +103,12 @@ ai-router-dashboard/
 │   ├── scripts/export_openapi.py
 │   └── tests/
 ├── frontend/src/
-│   ├── app/                     # rutas: dashboard, chat, analytics, models, settings
-│   ├── components/              # chat/, dashboard/, layout/
-│   ├── hooks/                   # useChatRouter, useBackendHealth, useDisclosure
+│   ├── app/                     # rutas: playground (inicio), dashboard, analytics, models, settings; /chat redirige a /playground
+│   ├── components/              # playground/, dashboard/, layout/
+│   ├── hooks/                   # usePlaygroundRouter, useBackendHealth, useDisclosure
 │   ├── lib/                     # config, formato, estilos de modelos
 │   ├── services/                # routerApi (backend real), api + mockData (dashboard)
-│   └── types/                   # api.ts (contrato HTTP), chat.ts, index.ts
+│   └── types/                   # api.ts (contrato HTTP), playground.ts, index.ts
 ├── contracts/openapi.json
 ├── docs/
 ├── docker-compose.yml
@@ -118,4 +118,4 @@ ai-router-dashboard/
 ## Solución de problemas
 
 - **`pytest` falla al cargar plugins ajenos al proyecto** (por ejemplo, con ROS instalado y su `PYTHONPATH` exportado): ejecuta `PYTHONPATH= pytest`.
-- **El chat muestra "No se pudo conectar con el backend"**: comprueba que el backend está levantado y que `NEXT_PUBLIC_API_URL` apunta a él, sin `/api/v1`.
+- **El Playground muestra "No se pudo conectar con el backend"**: comprueba que el backend está levantado y que `NEXT_PUBLIC_API_URL` apunta a él, sin `/api/v1`.

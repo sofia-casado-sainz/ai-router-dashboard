@@ -52,7 +52,7 @@ flowchart LR
 
 <sub>Líneas continuas: funciona hoy. Discontinuas: diseñado, pendiente de implementar.</sub>
 
-- **Frontend (Next.js).** La parte que ve el usuario: un chat donde escribes la tarea y un dashboard de consumo y costes. Cada respuesta muestra *qué* modelo se eligió y *por qué*: complejidad estimada, coste previsto y el motivo de la decisión.
+- **Frontend (Next.js).** La parte que ve el usuario: un Playground donde describes una tarea y un dashboard de consumo y costes. Cada decisión muestra *qué* modelo se eligió y *por qué*: complejidad estimada, coste previsto y el motivo de la decisión.
 - **Backend (FastAPI).** Recibe la petición, la valida y se la pasa al motor de enrutado. Expone una API versionada (`/api/v1`) y documentada automáticamente con OpenAPI.
 - **Motor de enrutado.** El corazón del proyecto. Hoy analiza el prompt con reglas y estima su complejidad y su coste. El objetivo es que filtre los modelos válidos (contexto, privacidad, presupuesto) y puntúe los candidatos equilibrando calidad, coste y latencia.
 - **Base de datos (PostgreSQL).** Ya está preparada en Docker. Guardará el catálogo de modelos y sus precios, el historial de peticiones y el consumo real por equipo.
@@ -72,7 +72,7 @@ Motivo:       Arquitectura software avanzada  [arquitectura]
 ## Qué funciona hoy
 
 **✅ Implementado**
-- Chat conectado al backend real, con estados de carga, error y reintento.
+- Playground conectado al backend real, con estados de carga, error y reintento.
 - Tarjeta de decisión: modelo, proveedor, complejidad, coste estimado y motivo.
 - Motor de enrutado por reglas, con estimación de complejidad y coste.
 - Catálogo de modelos como única fuente de verdad en el backend. La interfaz no se rompe si aparece un modelo nuevo.
@@ -115,8 +115,9 @@ No elegí las tecnologías por moda. Esto es lo que me aporta cada una y lo que 
 
 | Fase | Objetivo | Estado |
 |---|---|---|
-| **Prototipo** | Chat, dashboard y enrutado por reglas de extremo a extremo | ✅ |
+| **Prototipo** | Interfaz de decisión, dashboard y enrutado por reglas de extremo a extremo | ✅ |
 | **S0 · Fundaciones** | Configuración, logging, `/api/v1`, Docker, contrato OpenAPI | ✅ |
+| **S0.5 · Producto** | Playground, navegación honesta, datos de ejemplo señalizados | ✅ |
 | **S1 · Persistencia** | PostgreSQL, migraciones, catálogo con precios reales, tipos generados | 🚧 |
 | **S2 · Ejecución real** | OpenRouter, streaming, registro de uso y coste reales | 🎯 |
 | **S3 · Local e híbrido** | Ollama, health checks, cadenas de fallback, política de privacidad | 🎯 |
@@ -141,12 +142,12 @@ Algunas cosas que este proyecto me ha enseñado, la mayoría equivocándome prim
 <!--
 Guarda las imágenes en docs/screenshots/ y descomenta cada línea:
 
-![Chat Router: decisión explicada](docs/screenshots/chat.png)
+![Playground: decisión explicada](docs/screenshots/playground.png)
 ![Dashboard de consumo](docs/screenshots/dashboard.png)
 ![Demo: del prompt a la decisión](docs/screenshots/demo.gif)
 -->
 
-*Próximamente: capturas del chat y del dashboard, y un GIF del flujo completo.*
+*Próximamente: capturas del Playground y del dashboard, y un GIF del flujo completo.*
 
 ## Cómo ejecutarlo
 
@@ -159,7 +160,7 @@ cp .env.example .env          # define POSTGRES_PASSWORD
 docker compose up --build
 ```
 
-Abre <http://localhost:3000/chat> y prueba con *"Diseña una arquitectura cloud escalable"*. La API está documentada en <http://localhost:8010/docs>.
+Abre <http://localhost:3000/playground> y prueba con *"Diseña una arquitectura cloud escalable"*. La API está documentada en <http://localhost:8010/docs>.
 
 Sin Docker (Python ≥ 3.11 y Node ≥ 20):
 

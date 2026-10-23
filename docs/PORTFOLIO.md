@@ -7,7 +7,7 @@
 **Estado:** prototipo funcional, en desarrollo activo
 **Código:** [github.com/sofia-casado-sainz/ai-router-dashboard](https://github.com/sofia-casado-sainz/ai-router-dashboard)
 
-<!-- Imagen de portada: captura del chat mostrando una decisión del router. -->
+<!-- Imagen de portada: captura del Playground mostrando una decisión del router. -->
 
 ---
 
@@ -31,7 +31,7 @@ Ese último punto acabó guiando el diseño. Un router que acierta pero no expli
 
 ## Cómo lo abordé
 
-**Primero, que funcionara de extremo a extremo.** Antes de pensar en algoritmos sofisticados, construí el recorrido completo: una interfaz de chat en Next.js, una API en FastAPI y un primer motor de decisión basado en reglas. Era deliberadamente simple. Quería validar la experiencia (escribir una tarea y ver una decisión razonada) antes de invertir en la parte difícil.
+**Primero, que funcionara de extremo a extremo.** Antes de pensar en algoritmos sofisticados, construí el recorrido completo: una interfaz en Next.js para describir una tarea, una API en FastAPI y un primer motor de decisión basado en reglas. Era deliberadamente simple. Quería validar la experiencia (escribir una tarea y ver una decisión razonada) antes de invertir en la parte difícil.
 
 **Después, auditar antes de crecer.** Con el prototipo en marcha hice una auditoría técnica de mi propio código. Encontré cosas que no escalaban: el catálogo de modelos estaba duplicado entre frontend y backend, y bastaba un modelo nuevo para romper la interfaz. Los tipos se copiaban a mano entre los dos lados. La configuración estaba dispersa. Nada de esto se veía desde fuera, pero cada uno era una deuda que crecería con cada funcionalidad.
 
