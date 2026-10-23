@@ -39,6 +39,14 @@ python main.py               # http://localhost:8010  (Swagger en /docs)
 pytest
 ```
 
+### Tests del backend
+
+La forma oficial de ejecutar los tests es `pytest` desde `backend/`, con el entorno virtual activado. También funcionan `python -m pytest` y `backend/.venv/bin/pytest backend` desde la raíz del repositorio. No hace falta ninguna variable de entorno.
+
+La configuración vive en `[tool.pytest.ini_options]` de `pyproject.toml` e incluye `addopts = ["--disable-plugin-autoload"]`. Por defecto, pytest carga automáticamente cualquier plugin instalado que encuentre en `sys.path`, también los que no son del proyecto. En una máquina con ROS 2, `source /opt/ros/<distro>/setup.bash` exporta `PYTHONPATH` con los paquetes de ROS, y pytest intenta cargar sus plugins (`launch_testing`, `ament_*`). Fallan al importar dependencias que no están en el entorno virtual (por ejemplo, `ModuleNotFoundError: No module named 'lark'`) y los tests no llegan a ejecutarse. Con la carga automática desactivada, el resultado no depende de lo que haya instalado en el sistema.
+
+El flag existe desde pytest 8.4, por eso es la versión mínima en las dependencias de desarrollo. Si un test necesita un plugin, se activa explícitamente: por ejemplo, `-p anyio` para tests asíncronos con `@pytest.mark.anyio`, añadiéndolo a `addopts` si pasa a ser habitual.
+
 Los logs salen en JSON, una línea por evento:
 
 ```json
@@ -134,6 +142,7 @@ ai-router-dashboard/
 
 ## Solución de problemas
 
-- **`pytest` falla al cargar plugins ajenos al proyecto** (por ejemplo, con ROS instalado y su `PYTHONPATH` exportado): ejecuta `PYTHONPATH= pytest`.
+- **`pytest` falla al cargar plugins ajenos al proyecto** (por ejemplo, con ROS 2 y su `PYTHONPATH` exportado): ya no debería ocurrir, porque la configuración desactiva la carga automática de plugins (ver [Tests del backend](#tests-del-backend)). Si vuelve a pasar, comprueba que tienes pytest ≥ 8.4 en el entorno virtual (`pip install -e ".[dev]"`).
+- **`pip install` avisa de dependencias de paquetes de ROS** (por ejemplo, `launch-ros requires setuptools`): pip también ve los paquetes de ROS a través de `PYTHONPATH`. Es inofensivo; para una instalación sin ruido, ejecútalo en una terminal sin ROS cargado o con `PYTHONPATH= pip install -e ".[dev]"`.
 - **El Playground muestra "No se pudo conectar con el backend"**: comprueba que el backend está levantado y que `NEXT_PUBLIC_API_URL` apunta a él, sin `/api/v1`.
 - **`typecheck` o `build` fallan con errores en `.next/dev/types/validator.ts` después de borrar o renombrar una ruta**: son tipos obsoletos de una sesión anterior de `npm run dev`. Next.js los guarda en `.next/dev`, y ni `next typegen` ni `next build` los regeneran. Borra la carpeta con `rm -rf frontend/.next/dev`; se vuelve a crear al arrancar `npm run dev`. En CI no ocurre, porque el clon empieza limpio.
