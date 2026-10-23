@@ -59,8 +59,25 @@ cd frontend
 npm install
 npm run dev                  # http://localhost:3000
 npm run lint
+npm run typecheck
 npm run build
 ```
+
+## Validación del frontend
+
+Tres comprobaciones independientes entre sí: funcionan en cualquier orden y en un clon limpio, tras `npm ci`, sin artefactos de ejecuciones anteriores.
+
+| Comando | Qué comprueba | Notas |
+|---|---|---|
+| `npm run lint` | ESLint con `eslint-config-next`: reglas de React, hooks, accesibilidad y Next.js. | No necesita tipos generados. |
+| `npm run typecheck` | TypeScript estricto en todo el proyecto, incluidos los tipos que Next.js genera para rutas y layouts. | `next typegen && tsc --noEmit`. No compila la aplicación; tarda unos segundos. |
+| `npm run build` | Build de producción: compila, comprueba tipos y prerenderiza las rutas. | `next build` no ejecuta ESLint en esta versión de Next.js, por eso `lint` va aparte. |
+
+### Por qué `typecheck` usa `next typegen`
+
+Next.js genera tipos a partir de la estructura de `src/app`: helpers globales como `LayoutProps` (los usa `src/app/layout.tsx`), la lista de rutas de la aplicación y un validador que comprueba que cada página y cada layout exportan lo que Next.js espera. Esos tipos se escriben en `.next/types/` y `next-env.d.ts`, que no están en git.
+
+`next build` y `next dev` los generan, pero `tsc` por sí solo no. Por eso, en un clon limpio, `tsc --noEmit` falla con `Cannot find name 'LayoutProps'`. `next typegen` genera esos archivos sin hacer un build completo, así que `typecheck` funciona desde cero y siempre con los tipos al día: si borras o renombras una ruta, los vuelve a generar.
 
 ## Docker Compose
 
@@ -103,7 +120,7 @@ ai-router-dashboard/
 │   ├── scripts/export_openapi.py
 │   └── tests/
 ├── frontend/src/
-│   ├── app/                     # rutas: playground (inicio), dashboard, analytics, models, settings; /chat redirige a /playground
+│   ├── app/                     # rutas: playground (inicio), dashboard, analytics, models, settings; /chat redirige a /playground (temporal, 307)
 │   ├── components/              # playground/, dashboard/, layout/
 │   ├── hooks/                   # usePlaygroundRouter, useBackendHealth, useDisclosure
 │   ├── lib/                     # config, formato, estilos de modelos
@@ -119,3 +136,4 @@ ai-router-dashboard/
 
 - **`pytest` falla al cargar plugins ajenos al proyecto** (por ejemplo, con ROS instalado y su `PYTHONPATH` exportado): ejecuta `PYTHONPATH= pytest`.
 - **El Playground muestra "No se pudo conectar con el backend"**: comprueba que el backend está levantado y que `NEXT_PUBLIC_API_URL` apunta a él, sin `/api/v1`.
+- **`typecheck` o `build` fallan con errores en `.next/dev/types/validator.ts` después de borrar o renombrar una ruta**: son tipos obsoletos de una sesión anterior de `npm run dev`. Next.js los guarda en `.next/dev`, y ni `next typegen` ni `next build` los regeneran. Borra la carpeta con `rm -rf frontend/.next/dev`; se vuelve a crear al arrancar `npm run dev`. En CI no ocurre, porque el clon empieza limpio.
