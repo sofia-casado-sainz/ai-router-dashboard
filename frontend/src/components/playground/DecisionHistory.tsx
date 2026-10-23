@@ -1,24 +1,24 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { Message } from "@/types/chat";
-import ChatEmptyState from "./ChatEmptyState";
-import ChatMessage from "./ChatMessage";
-import TypingIndicator from "./TypingIndicator";
+import type { Message } from "@/types/playground";
+import PlaygroundEmptyState from "./PlaygroundEmptyState";
+import DecisionEntry from "./DecisionEntry";
+import DecisionLoadingIndicator from "./DecisionLoadingIndicator";
 
-interface ChatHistoryProps {
+interface DecisionHistoryProps {
   messages: Message[];
   isRouting: boolean;
   onSuggestion: (prompt: string) => void;
   onRetry: (errorId: string) => void;
 }
 
-export default function ChatHistory({
+export default function DecisionHistory({
   messages,
   isRouting,
   onSuggestion,
   onRetry,
-}: ChatHistoryProps) {
+}: DecisionHistoryProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Mantener visible el último mensaje.
@@ -29,7 +29,7 @@ export default function ChatHistory({
   if (messages.length === 0 && !isRouting) {
     return (
       <div className="flex-1 overflow-y-auto">
-        <ChatEmptyState onSuggestion={onSuggestion} />
+        <PlaygroundEmptyState onSuggestion={onSuggestion} />
       </div>
     );
   }
@@ -38,13 +38,13 @@ export default function ChatHistory({
     <div className="flex-1 overflow-y-auto" aria-live="polite">
       <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6">
         {messages.map((message) => (
-          <ChatMessage
+          <DecisionEntry
             key={message.id}
             message={message}
             onRetry={isRouting ? undefined : onRetry}
           />
         ))}
-        {isRouting && <TypingIndicator />}
+        {isRouting && <DecisionLoadingIndicator />}
         <div ref={bottomRef} />
       </div>
     </div>

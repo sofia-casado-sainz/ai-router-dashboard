@@ -1,26 +1,31 @@
+/** Un ejemplo por regla del router, para ver decisiones distintas. */
 const SUGGESTIONS = [
-  "Diseña una arquitectura cloud para un SaaS multi-tenant",
-  "Investiga y compara bases de datos vectoriales",
-  "Tengo un bug en TypeScript con tipos genéricos",
-  "Hazme un resumen de este correo para mi equipo",
+  "Resume este correo para mi equipo",
+  "Diseña una arquitectura para una API",
+  "Analiza este bug de producción en TypeScript",
+  "Compara tres bases de datos vectoriales",
 ];
 
-interface ChatEmptyStateProps {
+interface PlaygroundEmptyStateProps {
   onSuggestion: (prompt: string) => void;
 }
 
-export default function ChatEmptyState({ onSuggestion }: ChatEmptyStateProps) {
+export default function PlaygroundEmptyState({ onSuggestion }: PlaygroundEmptyStateProps) {
   return (
     <div className="flex h-full flex-col items-center justify-center px-4 py-10 text-center">
       <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-indigo-500 to-violet-600 text-xl shadow-lg shadow-indigo-500/20">
-        💬
+        🧭
       </span>
-      <h2 className="mt-4 text-lg font-semibold text-white">¿Qué necesitas hoy?</h2>
+      <h2 className="mt-4 text-lg font-semibold text-white">¿Qué tarea quieres enrutar?</h2>
       <p className="mt-1 max-w-md text-sm text-zinc-400">
-        Escribe un prompt y el router elegirá el modelo más adecuado según complejidad y coste.
+        El router analiza la tarea y te muestra qué modelo elegiría, cuánto costaría y por qué. No
+        ejecuta el modelo ni genera una respuesta.
       </p>
 
-      <div className="mt-8 grid w-full max-w-2xl grid-cols-1 gap-2 sm:grid-cols-2">
+      <p className="mt-8 text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+        Prueba con un ejemplo
+      </p>
+      <div className="mt-3 grid w-full max-w-2xl grid-cols-1 gap-2 sm:grid-cols-2">
         {SUGGESTIONS.map((suggestion) => (
           <button
             key={suggestion}

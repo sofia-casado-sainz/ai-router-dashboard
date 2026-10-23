@@ -2,18 +2,18 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, routePrompt } from "@/services/routerApi";
-import type { Message, RoutingDecision } from "@/types/chat";
+import type { Message, RoutingDecision } from "@/types/playground";
 
 function createId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function buildReply(decision: RoutingDecision) {
-  return `Petición enrutada a ${decision.model.name}. La generación de la respuesta se conectará en la siguiente fase.`;
+  return `Decisión del motor v0 (reglas por palabras clave). ${decision.model.name} no se ejecuta todavía: el Playground muestra la decisión, no una respuesta.`;
 }
 
-/** Estado del chat: mensajes, envío al backend y gestión de errores. */
-export function useChatRouter() {
+/** Estado del Playground: historial de decisiones, envío al backend y gestión de errores. */
+export function usePlaygroundRouter() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isRouting, setIsRouting] = useState(false);
   const abortRef = useRef<AbortController | null>(null);

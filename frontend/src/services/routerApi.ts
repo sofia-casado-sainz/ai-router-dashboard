@@ -1,6 +1,6 @@
 import { API_PREFIX, API_TIMEOUT_MS, API_URL } from "@/lib/config";
 import type { HealthResponse, RouteRequest, RouteResponse } from "@/types/api";
-import type { RoutingDecision } from "@/types/chat";
+import type { RoutingDecision } from "@/types/playground";
 
 export class ApiError extends Error {
   constructor(

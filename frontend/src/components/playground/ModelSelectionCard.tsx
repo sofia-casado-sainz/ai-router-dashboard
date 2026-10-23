@@ -1,7 +1,7 @@
 import { formatCost, formatCompactNumber } from "@/lib/format";
 import { getModelStyles } from "@/lib/routing/models";
 import { cn } from "@/lib/utils";
-import type { RoutingDecision } from "@/types/chat";
+import type { RoutingDecision } from "@/types/playground";
 import ComplexityMeter from "./ComplexityMeter";
 
 export default function ModelSelectionCard({ decision }: { decision: RoutingDecision }) {
@@ -35,8 +35,11 @@ export default function ModelSelectionCard({ decision }: { decision: RoutingDeci
           </div>
         </div>
         {decision.isFallback && (
-          <span className="shrink-0 rounded-md bg-white/[0.04] px-1.5 py-0.5 text-[11px] text-zinc-400 ring-1 ring-inset ring-white/[0.08]">
-            Por defecto
+          <span
+            title="Ninguna regla coincidió con la tarea: se usa el modelo de propósito general."
+            className="shrink-0 rounded-md bg-white/[0.04] px-1.5 py-0.5 text-[11px] text-zinc-400 ring-1 ring-inset ring-white/[0.08]"
+          >
+            Sin regla específica
           </span>
         )}
       </div>
@@ -49,7 +52,7 @@ export default function ModelSelectionCard({ decision }: { decision: RoutingDeci
             {formatCost(decision.estimatedCost)}
           </dd>
           <dd className="text-[11px] text-zinc-500">
-            ~{formatCompactNumber(decision.estimatedTokens)} tokens
+            ~{formatCompactNumber(decision.estimatedTokens)} tokens · precio simulado
           </dd>
         </div>
         <div className="px-4 py-3">
@@ -68,16 +71,19 @@ export default function ModelSelectionCard({ decision }: { decision: RoutingDeci
         <p className="text-xs text-zinc-500">Motivo</p>
         <p className="mt-1 text-sm text-zinc-200">{decision.reason}</p>
         {decision.matchedKeywords.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {decision.matchedKeywords.map((keyword) => (
-              <span
-                key={keyword}
-                className="rounded bg-white/[0.04] px-1.5 py-0.5 font-mono text-[11px] text-zinc-400 ring-1 ring-inset ring-white/[0.06]"
-              >
-                {keyword}
-              </span>
-            ))}
-          </div>
+          <>
+            <p className="mt-3 text-xs text-zinc-500">Palabras clave detectadas</p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {decision.matchedKeywords.map((keyword) => (
+                <span
+                  key={keyword}
+                  className="rounded bg-white/[0.04] px-1.5 py-0.5 font-mono text-[11px] text-zinc-400 ring-1 ring-inset ring-white/[0.06]"
+                >
+                  {keyword}
+                </span>
+              ))}
+            </div>
+          </>
         )}
       </div>
     </div>

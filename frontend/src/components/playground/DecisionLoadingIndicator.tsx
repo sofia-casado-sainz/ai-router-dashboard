@@ -1,6 +1,6 @@
-import { RouterAvatar } from "./ChatMessage";
+import { RouterAvatar } from "./DecisionEntry";
 
-export default function TypingIndicator() {
+export default function DecisionLoadingIndicator() {
   return (
     <div className="flex items-center gap-3" role="status">
       <RouterAvatar />
@@ -10,7 +10,7 @@ export default function TypingIndicator() {
           <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-zinc-400 [animation-delay:-0.15s]" />
           <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-zinc-400" />
         </span>
-        <span className="text-xs text-zinc-400">Analizando prompt y seleccionando modelo…</span>
+        <span className="text-xs text-zinc-400">Analizando la tarea y eligiendo modelo…</span>
       </div>
     </div>
   );

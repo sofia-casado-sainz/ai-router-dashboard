@@ -1,13 +1,13 @@
 "use client";
 
-import { useChatRouter } from "@/hooks/useChatRouter";
+import { usePlaygroundRouter } from "@/hooks/usePlaygroundRouter";
 import BackendStatus from "./BackendStatus";
-import ChatHistory from "./ChatHistory";
-import ChatInput from "./ChatInput";
+import DecisionHistory from "./DecisionHistory";
+import PlaygroundInput from "./PlaygroundInput";
 
-/** Contenedor del Chat Router: conecta el estado (backend real) con historial y entrada. */
-export default function ChatPanel() {
-  const { messages, isRouting, sendMessage, retry, reset } = useChatRouter();
+/** Contenedor del Playground: conecta el estado (backend real) con historial y entrada. */
+export default function PlaygroundPanel() {
+  const { messages, isRouting, sendMessage, retry, reset } = usePlaygroundRouter();
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-white/[0.06] bg-zinc-900/30">
@@ -19,18 +19,18 @@ export default function ChatPanel() {
             onClick={reset}
             className="rounded-md px-2 py-1 text-xs font-medium text-zinc-400 hover:bg-white/[0.06] hover:text-white"
           >
-            Nueva conversación
+            Limpiar historial
           </button>
         )}
       </div>
 
-      <ChatHistory
+      <DecisionHistory
         messages={messages}
         isRouting={isRouting}
         onSuggestion={sendMessage}
         onRetry={retry}
       />
-      <ChatInput onSend={sendMessage} disabled={isRouting} />
+      <PlaygroundInput onSend={sendMessage} disabled={isRouting} />
     </div>
   );
 }

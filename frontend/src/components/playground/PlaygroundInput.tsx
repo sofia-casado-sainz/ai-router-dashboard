@@ -4,12 +4,12 @@ import { useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 
 const MAX_HEIGHT = 200;
 
-interface ChatInputProps {
+interface PlaygroundInputProps {
   onSend: (content: string) => void;
   disabled?: boolean;
 }
 
-export default function ChatInput({ onSend, disabled = false }: ChatInputProps) {
+export default function PlaygroundInput({ onSend, disabled = false }: PlaygroundInputProps) {
   const [value, setValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const canSend = value.trim().length > 0 && !disabled;
@@ -40,11 +40,11 @@ export default function ChatInput({ onSend, disabled = false }: ChatInputProps) 
   return (
     <form onSubmit={submit} className="border-t border-white/[0.06] bg-zinc-950/80 p-3 sm:p-4">
       <div className="mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border border-white/[0.08] bg-zinc-900 p-2 transition-colors focus-within:border-indigo-500/50 focus-within:ring-2 focus-within:ring-indigo-500/20">
-        <label htmlFor="chat-prompt" className="sr-only">
-          Prompt
+        <label htmlFor="playground-prompt" className="sr-only">
+          Tarea
         </label>
         <textarea
-          id="chat-prompt"
+          id="playground-prompt"
           ref={textareaRef}
           rows={1}
           value={value}
@@ -53,13 +53,13 @@ export default function ChatInput({ onSend, disabled = false }: ChatInputProps) 
             resize();
           }}
           onKeyDown={onKeyDown}
-          placeholder="Describe lo que necesitas..."
+          placeholder="Describe una tarea, p. ej. «Resume este correo»"
           className="max-h-[200px] flex-1 resize-none bg-transparent px-2 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none"
         />
         <button
           type="submit"
           disabled={!canSend}
-          aria-label="Enviar"
+          aria-label="Decidir modelo"
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500 text-white transition-colors hover:bg-indigo-400 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
         >
           <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
@@ -68,7 +68,8 @@ export default function ChatInput({ onSend, disabled = false }: ChatInputProps) 
         </button>
       </div>
       <p className="mx-auto mt-2 max-w-3xl text-center text-[11px] text-zinc-600">
-        La selección de modelo la decide el backend · Costes estimados.
+        El router elige el modelo, pero todavía no genera respuestas · Costes estimados con precios
+        simulados.
       </p>
     </form>
   );
