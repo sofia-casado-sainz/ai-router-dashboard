@@ -16,7 +16,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0",
+    # 8.4: primera versión con --disable-plugin-autoload (ver addopts).
+    "pytest>=8.4",
     "httpx>=0.27",
 ]
 
@@ -28,3 +29,6 @@ py-modules = ["main"]
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+# No cargar plugins de pytest instalados fuera del proyecto (p. ej. los de ROS 2,
+# visibles a través de PYTHONPATH). Si un test necesita uno, se activa con -p.
+addopts = ["--disable-plugin-autoload"]
