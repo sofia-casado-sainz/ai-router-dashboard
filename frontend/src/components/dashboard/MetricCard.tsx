@@ -6,10 +6,19 @@ export interface MetricCardProps {
   value: string;
   icon: string;
   description?: string;
+  /** Aclaración que se muestra como tooltip junto a la descripción. */
+  hint?: string;
   trend?: Trend;
 }
 
-export default function MetricCard({ label, value, icon, description, trend }: MetricCardProps) {
+export default function MetricCard({
+  label,
+  value,
+  icon,
+  description,
+  hint,
+  trend,
+}: MetricCardProps) {
   return (
     <div className="group relative overflow-hidden rounded-xl border border-white/[0.06] bg-zinc-900/60 p-5 transition-colors hover:border-white/[0.12]">
       <div
@@ -34,6 +43,17 @@ export default function MetricCard({ label, value, icon, description, trend }: M
       <div className="mt-3 flex min-h-5 items-center gap-2 text-xs text-zinc-500">
         {trend && <TrendBadge trend={trend} />}
         {description && <span className="truncate">{description}</span>}
+        {hint && (
+          <span
+            role="img"
+            tabIndex={0}
+            title={hint}
+            aria-label={hint}
+            className="shrink-0 cursor-help rounded-full text-zinc-500 hover:text-zinc-300 focus:text-zinc-300 focus:outline-none"
+          >
+            ⓘ
+          </span>
+        )}
       </div>
     </div>
   );

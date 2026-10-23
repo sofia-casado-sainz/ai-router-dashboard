@@ -2,6 +2,8 @@ export interface NavItem {
   label: string;
   href: string;
   icon: string;
+  /** Sprint previsto (p. ej. "S1") si la funcionalidad aún no está implementada. */
+  sprint?: string;
 }
 
 export type TrendDirection = "up" | "down";
@@ -17,6 +19,14 @@ export interface DashboardMetrics {
   period: string;
   tokensUsed: { value: number; trend: Trend };
   totalCost: { value: number; currency: string; trend: Trend };
+  /** `share`: porcentaje de los tokens consumidos por el modelo. */
   topModel: { name: string; provider: string; share: number };
-  savings: { value: number; currency: string; trend: Trend };
+  /** Ahorro = coste de la línea base − coste total. */
+  savings: { value: number; currency: string; baseline: SavingsBaseline };
+}
+
+/** Coste hipotético si todas las peticiones hubieran usado un único modelo. */
+export interface SavingsBaseline {
+  model: string;
+  cost: number;
 }
