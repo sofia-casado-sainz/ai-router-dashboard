@@ -142,6 +142,8 @@ La IA me permitió delegar parte de la escritura del código mientras mantenía 
 - **Lo que funciona en mi máquina puede fallar en un clon limpio.** `tsc` fallaba sin los tipos que genera Next.js, y pytest cargaba plugins de ROS 2 instalados en el sistema. Ahora `npm run typecheck` ejecuta antes `next typegen`, y pytest desactiva la carga automática de plugins.
 - **Una redirección permanente es difícil de deshacer.** `/chat` respondía con un 308, que los navegadores guardan en caché; la cambié a una redirección temporal para poder reutilizar la ruta.
 
+Para ejemplos de problemas reales encontrados durante el desarrollo, consulta [docs/INCIDENTS.md](docs/INCIDENTS.md).
+
 ## Cómo ejecutarlo
 
 Con Docker:

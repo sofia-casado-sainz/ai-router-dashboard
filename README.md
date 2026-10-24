@@ -140,6 +140,8 @@ AI let me delegate part of the code writing while I kept control over the design
 - **What works on my machine can fail on a clean clone.** `tsc` failed without the types Next.js generates, and pytest loaded ROS 2 plugins installed on the system. Now `npm run typecheck` runs `next typegen` first, and pytest disables plugin autoloading.
 - **A permanent redirect is hard to undo.** `/chat` answered with a 308, which browsers cache; I changed it to a temporary redirect so the route can be reused.
 
+For examples of real problems found during development, see [docs/INCIDENTS.md](docs/INCIDENTS.md) (in Spanish).
+
 ## Running it
 
 With Docker:

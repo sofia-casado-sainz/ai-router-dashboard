@@ -64,6 +64,8 @@ La IA me permitió delegar parte de la escritura del código mientras mantenía 
 - **Un contrato entre frontend y backend tiene que estar comprobado.** Exportar el esquema y validarlo en un test evita que se desactualice sin que nadie lo note.
 - **Validar fuera de mi máquina encuentra errores reales.** Un clon limpio, Docker y el navegador detectaron fallos que los tests locales no veían.
 
+Los problemas concretos, con su diagnóstico y su solución, están en el [registro de incidencias](INCIDENTS.md).
+
 ## Próximos pasos
 
 - **S2:** conectar el router al catálogo persistente, integrar OpenRouter para obtener respuestas reales, registrar el uso y el coste reales, y generar los tipos del frontend desde OpenAPI.
