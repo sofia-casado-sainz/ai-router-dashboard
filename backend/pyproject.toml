@@ -28,7 +28,7 @@ dev = [
 
 # Layout plano: los paquetes viven en la raíz de backend/.
 [tool.setuptools]
-packages = ["api", "core", "database", "domain", "repositories", "router", "schemas", "services"]
+packages = ["api", "core", "database", "domain", "providers", "repositories", "router", "schemas", "services"]
 py-modules = ["main"]
 
 [tool.pytest.ini_options]
