@@ -12,7 +12,7 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16+-4169E1)
 ![Licencia](https://img.shields.io/badge/licencia-MIT-blue)
 
-> **Estado actual.** El flujo completo funciona de extremo a extremo: interfaz → API → motor de enrutado → decisión explicada en pantalla. El catálogo de modelos y su histórico de precios viven en PostgreSQL y se muestran en la página Models. Lo que todavía no es real: las decisiones salen de reglas por palabras clave, el router aún usa su propio catálogo interno con precios simulados y el dashboard muestra datos de ejemplo. Todavía no se llama a ningún proveedor de IA. Más detalle en [Limitaciones conocidas](#limitaciones-conocidas).
+> **Estado actual.** El flujo completo funciona de extremo a extremo: interfaz → API → motor de enrutado → decisión explicada en pantalla. El catálogo de modelos y su histórico de precios viven en PostgreSQL y se muestran en la página Models. `POST /api/v1/completions` también puede ejecutar el modelo elegido, pero en S2 solo funciona con un proveedor simulado (`FakeProvider`): las respuestas son simuladas, no cuestan nada y el endpoint está desactivado por defecto. Lo que todavía no es real: las decisiones salen de reglas por palabras clave, el router aún usa su propio catálogo interno con precios simulados y el dashboard muestra datos de ejemplo. Todavía no se llama a ningún proveedor de IA real (OpenRouter, Ollama). Más detalle en [Limitaciones conocidas](#limitaciones-conocidas).
 
 ---
 
@@ -45,9 +45,13 @@ flowchart LR
     BE --> RE{{Motor de<br/>enrutado}}
     RE --> CAT[(Catálogo interno<br/>del router)]
     BE -->|GET /api/v1/models| DB[(PostgreSQL<br/>catálogo de modelos)]
-    RE -. S2 .-> DB
-    RE -. previsto .-> OR[OpenRouter<br/>GPT · Claude · Gemini · DeepSeek]
-    RE -. previsto .-> OL[Ollama<br/>modelos locales]
+    BE -->|POST /api/v1/completions| EX[[Capa de ejecución<br/>ADR-0001]]
+    EX --> RE
+    EX --> DB
+    EX --> FP[FakeProvider<br/>respuestas simuladas]
+    RE -. S2b .-> DB
+    EX -. previsto .-> OR[OpenRouter<br/>GPT · Claude · Gemini · DeepSeek]
+    EX -. previsto .-> OL[Ollama<br/>modelos locales]
 ```
 
 <sub>Líneas continuas: funciona hoy. Discontinuas: diseñado, pendiente de implementar.</sub>
@@ -55,8 +59,9 @@ flowchart LR
 - **Frontend (Next.js).** Un Playground donde describes una tarea, una página Models con el catálogo persistente y un dashboard con métricas de ejemplo. Cada decisión muestra qué modelo se eligió y por qué: complejidad estimada, coste estimado y motivo.
 - **Backend (FastAPI).** Valida cada petición y se la pasa al motor de enrutado. Expone una API versionada (`/api/v1`) documentada con OpenAPI.
 - **Motor de enrutado.** Analiza el prompt con reglas de palabras clave y estima su complejidad y su coste. El objetivo es que filtre los modelos válidos (contexto, privacidad, presupuesto) y puntúe los candidatos por calidad, coste y latencia.
-- **Base de datos (PostgreSQL).** Guarda el catálogo de modelos y su histórico de precios, con migraciones de Alembic y acceso asíncrono (SQLAlchemy + asyncpg). El router todavía no la usa; esa conexión forma parte de S2.
-- **Proveedores de IA (previsto).** OpenRouter para los modelos comerciales y Ollama para los locales. Los dos ofrecen una API compatible con la de OpenAI, así que debería bastar un único adaptador para ambos.
+- **Base de datos (PostgreSQL).** Guarda el catálogo de modelos y su histórico de precios, con migraciones de Alembic y acceso asíncrono (SQLAlchemy + asyncpg). El router todavía no la usa; esa conexión forma parte de S2b. La capa de ejecución la consulta para saber dónde se ejecuta cada modelo.
+- **Capa de ejecución ([ADR-0001](docs/adr/0001-inference-provider-abstraction.md)).** Separada del router, que solo decide. Resuelve dónde se ejecuta el modelo elegido y llama a ese *inference provider* a través de una interfaz común, con tipos normalizados, errores tipados y timeouts. Hoy el único proveedor registrado es `FakeProvider`, que devuelve respuestas simuladas sin red y sin coste.
+- **Proveedores de IA (previsto).** OpenRouter para los modelos comerciales (S2) y Ollama para los locales (S3). Los dos ofrecen una API compatible con la de OpenAI, así que debería bastar un único adaptador para ambos.
 
 Una decisión real del sistema hoy:
 
@@ -80,19 +85,22 @@ Motivo:       Arquitectura software avanzada  [arquitectura]
 - API versionada (`/api/v1`), configuración centralizada y logs estructurados en JSON.
 - Contrato OpenAPI exportado y comprobado por un test.
 - Docker Compose con frontend, backend y PostgreSQL; el backend aplica las migraciones y el seed al arrancar.
+- Capa de ejecución (ADR-0001): interfaz de inference providers, registro de proveedores, servicio de ejecución con timeouts y errores tipados, y una suite de conformidad que debe pasar cualquier proveedor.
+- `POST /api/v1/completions`: decide igual que `/route` y ejecuta el modelo elegido. Desactivado por defecto (`COMPLETIONS_ENABLED=false`); al activarlo, la respuesta viene de `FakeProvider` (simulada, 0 USD).
 - Dashboard con métricas **de ejemplo**: el diseño es real, los datos no.
 
 ## Limitaciones conocidas
 
-- **Tres fuentes de datos de modelos.** El router usa su catálogo interno (€ por cada 1.000 tokens), la página Models usa PostgreSQL (precios de ejemplo en USD por millón de tokens) y el dashboard usa datos de ejemplo. Unificarlas es parte de S2.
+- **Tres fuentes de datos de modelos.** El router usa su catálogo interno (€ por cada 1.000 tokens), la página Models usa PostgreSQL (precios de ejemplo en USD por millón de tokens) y el dashboard usa datos de ejemplo. Unificarlas es parte de S2b.
 - **Precios de ejemplo.** Los precios del seed no son tarifas reales de los proveedores.
 - **Formato de `DATABASE_URL`.** Tiene que usar el driver asíncrono (`postgresql+asyncpg://…`). Otros formatos, como el habitual `postgresql://…`, impiden que el backend arranque.
 - **Sin timeout de conexión a la base de datos.** Si el host de la base de datos no responde, `GET /api/v1/models` puede tardar unos 60 segundos en devolver un 503; el frontend deja de esperar a los 15 segundos.
-- **Sin respuestas reales.** El Playground muestra la decisión; no llama al modelo elegido.
+- **Solo respuestas simuladas.** El Playground muestra la decisión y no llama a ningún modelo. `POST /api/v1/completions` solo funciona con `FakeProvider`, que devuelve una respuesta simulada sin coste; OpenRouter (S2) y Ollama (S3) todavía no están integrados.
+- **Mapeo transitorio de modelos.** La capa de ejecución traduce los ids del router a modelos del catálogo con una tabla temporal definida en ADR-0001 (por ejemplo, `gpt` → `openai/gpt-5`). Es deuda arquitectónica y desaparece en S2b.
 
 ## Decisiones técnicas
 
-Qué me aporta cada tecnología y qué me cuesta.
+Qué me aporta cada tecnología y qué me cuesta. Las decisiones de arquitectura están documentadas como ADRs en [docs/adr](docs/adr) (ADR-0001: abstracción de inference providers).
 
 **Next.js.** Un único proyecto para la interfaz y, más adelante, una capa de servidor propia (BFF) para que las claves y las sesiones nunca lleguen al navegador.
 *Coste:* el framework evoluciona rápido, y algunos detalles (como que las variables `NEXT_PUBLIC_*` se fijen al compilar) condicionan el despliegue.
@@ -125,8 +133,9 @@ La IA me permitió delegar parte de la escritura del código mientras mantenía 
 | **S0 · Fundaciones** | Configuración, logging, `/api/v1`, Docker, contrato OpenAPI | ✅ |
 | **S0.5 · Producto** | Playground, navegación honesta, datos de ejemplo señalizados | ✅ |
 | **S1 · Persistencia** | PostgreSQL, SQLAlchemy asíncrono, Alembic, catálogo de modelos con histórico de precios, página Models | ✅ |
-| **S1.5 · Portfolio y open source** | Documentación, licencia, preparación de CI y de releases | 🚧 |
-| **S2 · Ejecución real** | Router sobre el catálogo persistente, OpenRouter, streaming, registro de uso y coste reales, tipos generados | 🎯 |
+| **S1.5 · Portfolio y open source** | Documentación, licencia, preparación de CI y de releases | ✅ |
+| **S2 · Base de ejecución** | Capa de ejecución (ADR-0001), `POST /api/v1/completions` con `FakeProvider`, proveedor de OpenRouter | 🚧 |
+| **S2b · Router sobre el catálogo** | Router sobre el catálogo persistente, llamadas reales en entornos públicos, streaming, registro de uso y coste, tipos generados | 🎯 |
 | **S3 · Local e híbrido** | Ollama, health checks, cadenas de fallback, política de privacidad | 🎯 |
 | **S4 · Multi-equipo** | Autenticación, organizaciones, API keys, límites de uso | 🎯 |
 | **S5 · Router v2** | Puntuación coste/calidad/latencia, clasificador, evaluación con un dataset propio | 🎯 |
@@ -136,7 +145,7 @@ La IA me permitió delegar parte de la escritura del código mientras mantenía 
 
 - **Las reglas por palabras clave tienen un límite claro.** El motor elige la primera regla que coincide. "Hazme un resumen de este bug" acaba en el modelo de programación porque esa regla va antes que la de resúmenes. Para mejorar hace falta clasificar la tarea, no solo buscar palabras.
 - **Un ahorro necesita una referencia.** El dashboard mostraba un "ahorro" sin decir respecto a qué. Ahora indica la línea base: lo que habría costado usar siempre el modelo de referencia.
-- **Duplicar el catálogo rompía la interfaz.** En S0 lo moví al backend. Desde S1 conviven temporalmente tres fuentes de datos de modelos (el catálogo interno del router, PostgreSQL y los datos de ejemplo del dashboard); unificarlas es parte de S2.
+- **Duplicar el catálogo rompía la interfaz.** En S0 lo moví al backend. Desde S1 conviven temporalmente tres fuentes de datos de modelos (el catálogo interno del router, PostgreSQL y los datos de ejemplo del dashboard); unificarlas es parte de S2b.
 - **Un contrato sin comprobar se desactualiza.** El esquema OpenAPI se exporta y un test falla si deja de coincidir con la API. Los tipos del frontend todavía se escriben a mano.
 - **Las variables públicas de Next.js se fijan al compilar.** En Docker, la URL del backend queda dentro de la imagen; cambiarla obliga a reconstruirla.
 - **Lo que funciona en mi máquina puede fallar en un clon limpio.** `tsc` fallaba sin los tipos que genera Next.js, y pytest cargaba plugins de ROS 2 instalados en el sistema. Ahora `npm run typecheck` ejecuta antes `next typegen`, y pytest desactiva la carga automática de plugins.
@@ -156,6 +165,8 @@ docker compose up --build
 ```
 
 Abre <http://localhost:3000/playground> y prueba con *"Diseña una arquitectura cloud escalable"*. La API está documentada en <http://localhost:8010/docs>.
+
+Para probar `POST /api/v1/completions`, define `COMPLETIONS_ENABLED=true` en `.env`. Responde con `FakeProvider`: respuestas simuladas, sin claves de API y sin coste.
 
 Sin Docker (Python ≥ 3.11, Node ≥ 20 y un PostgreSQL accesible con las variables `POSTGRES_*` de `.env`):
 
