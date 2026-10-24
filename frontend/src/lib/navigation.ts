@@ -4,11 +4,11 @@ import type { NavItem } from "@/types";
 export const NAV_ITEMS: NavItem[] = [
   { label: "Playground", href: "/playground", icon: "🧭" },
   { label: "Dashboard", href: "/dashboard", icon: "🏠" },
+  { label: "Models", href: "/models", icon: "🤖" },
 ];
 
 /** Funcionalidades previstas: cada una indica el sprint en el que llegará. */
 export const UPCOMING_NAV_ITEMS: NavItem[] = [
-  { label: "Models", href: "/models", icon: "🤖", sprint: "S1" },
   { label: "Analytics", href: "/analytics", icon: "📊", sprint: "S6" },
   { label: "Settings", href: "/settings", icon: "⚙️", sprint: "Futuro" },
 ];
