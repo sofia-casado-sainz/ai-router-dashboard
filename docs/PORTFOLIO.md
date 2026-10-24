@@ -1,69 +1,75 @@
-# AI Router Dashboard
+# AI Router
 
-### Un sistema que decide qué modelo de IA debe resolver cada tarea, y explica por qué.
+Un sistema que decide qué modelo de IA debería resolver cada tarea y explica por qué.
 
-**Rol:** diseño de producto, arquitectura y desarrollo full stack
-**Stack:** Next.js · React · TypeScript · Tailwind · FastAPI · Python · PostgreSQL · Docker
-**Estado:** prototipo funcional, en desarrollo activo
-**Código:** [github.com/sofia-casado-sainz/ai-router-dashboard](https://github.com/sofia-casado-sainz/ai-router-dashboard)
+- **Proyecto:** personal. Producto, arquitectura y desarrollo full stack.
+- **Perfil:** AI Engineer orientada a agentes de IA, automatización y sistemas de decisión.
+- **Stack:** Next.js · React · TypeScript · Tailwind · FastAPI · Python · PostgreSQL · SQLAlchemy (async) · Alembic · Docker
+- **Estado:** prototipo funcional (v0.6.0), en desarrollo.
+- **Código:** [github.com/sofia-casado-sainz/ai-router-dashboard](https://github.com/sofia-casado-sainz/ai-router-dashboard)
 
-<!-- Imagen de portada: captura del Playground mostrando una decisión del router. -->
+## Qué es
 
----
+AI Router recibe la descripción de una tarea y decide qué modelo de IA usaría para resolverla. Cada decisión muestra el modelo elegido, la complejidad estimada, el coste estimado y el motivo. Hoy decide con reglas de palabras clave; el objetivo es que equilibre coste, calidad, latencia y privacidad.
 
-## El punto de partida
+## Por qué existe
 
-Quería aprovechar mejor las IAs que uso para estudiar, programar y construir proyectos. El ecosistema cambia constantemente: aparecen modelos nuevos, cambian los precios y cambian las capacidades.
+Quería aprovechar mejor las IAs que uso para estudiar, programar y construir proyectos.
 
-AI Router nace primero como una herramienta para centralizar esa decisión para mí mismo, y después como una plataforma que pueda ayudar a otras personas con el mismo problema.
+El ecosistema cambia constantemente. Aparecen modelos nuevos. Cambian los precios. Cambian las capacidades.
 
-Me di cuenta de que no era un problema de herramientas, sino de decisión. Cada modelo tiene un precio, una ventana de contexto y unos puntos fuertes distintos. Algunos se pueden ejecutar en local, gratis y sin que los datos salgan del ordenador. Elegir bien depende de la tarea, del presupuesto y de lo sensible que sea la información. Esa elección se puede automatizar.
+AI Router nace primero como una herramienta para centralizar esa decisión para mí misma y después como una plataforma que pueda ayudar a otras personas con el mismo problema.
 
-## El reto
+## Qué hace hoy
 
-Quería construir algo que, a partir de un simple texto, respondiera a tres preguntas:
+- **Playground:** describes una tarea y ves la decisión del router (modelo, proveedor, complejidad, coste estimado, motivo y palabras clave detectadas). No llama al modelo elegido ni genera respuestas.
+- **Models:** catálogo persistente en PostgreSQL con proveedor, ventana de contexto, estado y precio vigente de cada modelo. Los precios son de ejemplo.
+- **Dashboard:** diseño de las métricas de consumo y ahorro, con datos de ejemplo señalizados en la propia pantalla.
+- **API:** `POST /api/v1/route` y `GET /api/v1/models`, versionada y documentada con OpenAPI.
 
-1. **¿Qué tan difícil es esta tarea?**
-2. **¿Qué modelos pueden resolverla de forma aceptable** dentro de mis límites de coste y privacidad?
-3. **De esos, ¿cuál me conviene más?** Y, sobre todo, ¿puedo explicar por qué?
+Las limitaciones están documentadas en el [README](../README.es.md#limitaciones-conocidas).
 
-Ese último punto acabó guiando el diseño. Un router que acierta pero no explica sus decisiones es una caja negra, y nadie confía su presupuesto a una caja negra. Por eso cada respuesta del sistema muestra el modelo elegido, la complejidad estimada, el coste previsto y el motivo.
+## Cómo se ha construido
 
-## Cómo lo abordé
+El proyecto avanza por sprints, cada uno con un objetivo cerrado y criterios de aceptación. Entre sprints hice auditorías técnicas que marcaron el siguiente paso.
 
-**Primero, que funcionara de extremo a extremo.** Antes de pensar en algoritmos sofisticados, construí el recorrido completo: una interfaz en Next.js para describir una tarea, una API en FastAPI y un primer motor de decisión basado en reglas. Era deliberadamente simple. Quería validar la experiencia (escribir una tarea y ver una decisión razonada) antes de invertir en la parte difícil.
+- **Prototipo:** recorrido completo de extremo a extremo con una interfaz en Next.js, una API en FastAPI y un primer motor de decisión basado en reglas.
+- **S0 · Fundaciones:** configuración centralizada, logs estructurados en JSON, API versionada en `/api/v1`, Docker Compose y un contrato OpenAPI comprobado por un test. El catálogo de modelos, que estaba duplicado en el frontend, pasó a vivir solo en el backend.
+- **S0.5 · Producto:** la interfaz de chat se convirtió en un Playground, la navegación se limitó a lo implementado y los datos de ejemplo quedaron señalizados. También se corrigieron problemas que solo aparecían fuera de mi máquina: el typecheck en un clon limpio, los tests afectados por plugins de pytest del sistema y una redirección permanente difícil de deshacer.
+- **S1 · Persistencia:** catálogo de modelos en PostgreSQL con SQLAlchemy asíncrono, migraciones con Alembic, seed idempotente, `GET /api/v1/models` y la página Models. Validado con Docker y en el navegador, incluidos los estados de carga, vacío y error.
+- **S1.5 · Portfolio y open source:** documentación bilingüe, licencia MIT y preparación de CI y releases.
 
-**Después, auditar antes de crecer.** Con el prototipo en marcha hice una auditoría técnica de mi propio código. Encontré cosas que no escalaban: el catálogo de modelos estaba duplicado entre frontend y backend, y bastaba un modelo nuevo para romper la interfaz. Los tipos se copiaban a mano entre los dos lados. La configuración estaba dispersa. Nada de esto se veía desde fuera, pero cada uno era una deuda que crecería con cada funcionalidad.
+## Decisiones de arquitectura
 
-**Luego, fundaciones.** Dediqué un sprint completo a no añadir nada visible: configuración centralizada, logs estructurados, una API versionada, Docker para levantar todo el entorno con un comando y un contrato OpenAPI entre frontend y backend, protegido por un test. Es el tipo de trabajo que no luce en una demo, pero es lo que permite que el proyecto crezca sin miedo a romperlo.
+**Backend en Python con un contrato explícito.** Elegí FastAPI porque la mayor parte de las herramientas de IA (SDKs, embeddings, clasificadores) están en Python. Tener dos lenguajes obliga a mantenerlos sincronizados, así que el esquema OpenAPI se exporta a `contracts/openapi.json` y un test falla si deja de coincidir con la API.
 
-## Decisiones que me hicieron pensar
+**Un Playground en lugar de un chat.** La primera interfaz tenía forma de chat, pero el producto todavía no genera respuestas. La convertí en un Playground que presenta la decisión del router como resultado principal, para que la interfaz no prometa algo que aún no existe.
 
-**¿Python o TypeScript para el backend?** Usar un solo lenguaje habría sido más cómodo. Elegí Python porque el ecosistema de IA (clasificadores, embeddings, SDKs) vive ahí, y el motor de enrutado es el corazón del producto. A cambio asumí el coste de mantener dos lenguajes sincronizados, y resolví ese problema de forma explícita con un contrato generado desde el backend.
+**Catálogo persistente sin tocar el router.** En S1 la restricción principal fue no cambiar el comportamiento del router. El catálogo se separó en capas (`api`, `services`, `repositories`, `domain`, `database`) y el router siguió usando su catálogo interno. Un test comprueba que `POST /api/v1/route` devuelve exactamente lo mismo que antes. El coste de esta decisión es que hoy conviven varias fuentes de datos de modelos; unificarlas es el primer objetivo de S2.
 
-**¿Integrar cada proveedor o usar un intermediario?** OpenRouter da acceso a GPT, Claude, Gemini y DeepSeek con una única API y precios actualizados. Me ahorra cinco integraciones, pero también me obliga a tener muy claro dónde aporta valor mi proyecto, porque OpenRouter ya tiene su propio enrutado automático. Mi respuesta: lo que lo diferencia son las políticas por equipo, los presupuestos, la privacidad y que cada decisión se pueda explicar.
+**OpenRouter y Ollama como plan de proveedores.** OpenRouter da acceso a muchos modelos comerciales con una sola integración, y Ollama a modelos locales con la misma API. Lo local plantea un problema de despliegue: un servicio en la nube no puede llegar al ordenador del usuario, así que hay que diseñar ese despliegue antes de ofrecer la funcionalidad.
 
-**Lo local no es solo "otro proveedor".** Integrar modelos locales con Ollama parecía trivial, porque usa la misma API. Pero un servicio en la nube no puede llegar al ordenador del usuario. Esa diferencia cambia por completo cómo se despliega el producto, y me alegro de haberla detectado en la fase de diseño y no después de prometerla.
+## Uso de IA
 
-## Dónde está hoy
+Utilicé Claude Code, GitHub Copilot y otros asistentes para acelerar la implementación, realizar auditorías técnicas y explorar alternativas de diseño.
 
-El flujo completo funciona: escribes *"Diseña una arquitectura cloud escalable"* y el sistema responde que lo resolvería Claude Sonnet, con una complejidad de 8 sobre 10, un coste estimado de unos 0,018 € y el motivo de la elección.
+La definición del producto, las decisiones de arquitectura, el roadmap, las restricciones técnicas y la validación de cada sprint fueron responsabilidad mía.
 
-Soy transparente con lo que aún no es real: la decisión se toma con reglas, los precios son simulados y el dashboard muestra datos de ejemplo. Las siguientes fases conectan la base de datos, las llamadas reales a los modelos, la integración local con Ollama y un motor de puntuación que equilibre calidad, coste y latencia.
+La IA me permitió delegar parte de la escritura del código mientras mantenía el control sobre el diseño y la comprensión del sistema.
 
-## Lo que me llevo
+## Qué he aprendido
 
-- **Lo difícil de un router de IA no es llamar a los modelos, es entender la tarea.** Mi primer motor me enseñó sus límites enseguida: con reglas de palabras clave, el orden de las reglas pesa más que el contenido del texto.
-- **Una métrica sin referencia no es una métrica.** Mostrar "ahorro generado" exige definir ahorro *respecto a qué*. Si no, es un número bonito y vacío.
-- **Medir antes de optimizar.** Sin un conjunto de pruebas propio no puedo demostrar que el sistema elige bien, así que construir ese conjunto va antes que mejorar el algoritmo.
-- **Invertir en fundaciones pronto es barato.** Ordenar configuración, logs y contratos con dos endpoints me llevó un sprint. Con veinte habría sido una migración dolorosa.
-- **Diseñar para lo desconocido.** La interfaz ya no asume qué modelos existen. Si mañana aparece uno nuevo, la aplicación lo muestra en lugar de romperse.
+- **Las reglas por palabras clave tienen un límite claro.** Con la primera regla que coincide como criterio, el orden de las reglas decide en los casos ambiguos. Mejorar el router exige clasificar la tarea y medir los resultados con un conjunto de pruebas propio.
+- **Una métrica de ahorro necesita una línea base visible.** Sin decir respecto a qué se ahorra, el número no significa nada.
+- **Un contrato entre frontend y backend tiene que estar comprobado.** Exportar el esquema y validarlo en un test evita que se desactualice sin que nadie lo note.
+- **Validar fuera de mi máquina encuentra errores reales.** Un clon limpio, Docker y el navegador detectaron fallos que los tests locales no veían.
 
-## Siguientes pasos
+## Próximos pasos
 
-Persistencia y precios reales → respuestas reales vía OpenRouter → modelos locales con Ollama → equipos y presupuestos → un motor de decisión medido con datos propios.
+- **S2:** conectar el router al catálogo persistente, integrar OpenRouter para obtener respuestas reales, registrar el uso y el coste reales, y generar los tipos del frontend desde OpenAPI.
+- **Más adelante:** modelos locales con Ollama, equipos y presupuestos, y un motor de decisión que equilibre coste, calidad y latencia, evaluado con un dataset propio.
 
----
+## Contacto
 
-<!-- Enlaces de contacto para tu portfolio -->
-**¿Hablamos?** [GitHub](https://github.com/sofia-casado-sainz) · LinkedIn · Email
+- **GitHub:** [@sofia-casado-sainz](https://github.com/sofia-casado-sainz)
+- **LinkedIn:** [sofia-casado-sainz](https://www.linkedin.com/in/sofia-casado-sainz-4094a028a)
