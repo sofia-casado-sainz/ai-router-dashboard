@@ -36,7 +36,7 @@ def test_settings_are_stored_in_app_state() -> None:
     assert app.state.settings is settings
 
 
-def test_no_new_api_routes() -> None:
+def test_api_surface() -> None:
     # El esquema OpenAPI es la superficie pública de la API.
     paths = create_app(Settings(_env_file=None)).openapi()["paths"]
 
@@ -46,6 +46,7 @@ def test_no_new_api_routes() -> None:
         ("GET", "/api/v1/health"),
         ("POST", "/api/v1/route"),
         ("GET", "/api/v1/models"),
+        ("POST", "/api/v1/completions"),
     }
 
 

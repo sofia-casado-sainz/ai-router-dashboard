@@ -117,10 +117,220 @@
           }
         }
       }
+    },
+    "/api/v1/completions": {
+      "post": {
+        "tags": [
+          "completions"
+        ],
+        "summary": "Create Completion",
+        "description": "Decide el modelo (igual que /route) y lo ejecuta con el inference provider del catálogo.",
+        "operationId": "create_completion",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompletionCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompletionResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "El proveedor limitó la petición."
+          },
+          "502": {
+            "description": "Modelo no disponible o credenciales rechazadas."
+          },
+          "503": {
+            "description": "Ejecución desactivada, proveedor no disponible o catálogo no disponible."
+          },
+          "504": {
+            "description": "El proveedor no respondió a tiempo."
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "CompletionCreateRequest": {
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Prompt",
+            "description": "Prompt del usuario."
+          },
+          "max_output_tokens": {
+            "type": "integer",
+            "maximum": 8192.0,
+            "minimum": 1.0,
+            "title": "Max Output Tokens",
+            "description": "Tope de tokens de salida.",
+            "default": 512
+          },
+          "temperature": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 2.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature"
+          }
+        },
+        "type": "object",
+        "required": [
+          "prompt"
+        ],
+        "title": "CompletionCreateRequest",
+        "examples": [
+          {
+            "prompt": "Resume este correo para mi equipo"
+          }
+        ]
+      },
+      "CompletionResponse": {
+        "properties": {
+          "decision": {
+            "$ref": "#/components/schemas/RouteResponse"
+          },
+          "completion": {
+            "$ref": "#/components/schemas/CompletionResultResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "decision",
+          "completion"
+        ],
+        "title": "CompletionResponse"
+      },
+      "CompletionResultResponse": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "inference_provider": {
+            "type": "string",
+            "title": "Inference Provider",
+            "description": "Sistema que ejecutó el modelo (p. ej. fake)."
+          },
+          "provider_model_id": {
+            "type": "string",
+            "title": "Provider Model Id",
+            "description": "Modelo usado realmente en ese sistema."
+          },
+          "finish_reason": {
+            "type": "string",
+            "enum": [
+              "stop",
+              "length",
+              "content_filter",
+              "error"
+            ],
+            "title": "Finish Reason"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/UsageResponse"
+          },
+          "cost": {
+            "$ref": "#/components/schemas/CostResponse"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms",
+            "description": "Latencia medida por el backend."
+          },
+          "provider_request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Request Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "content",
+          "inference_provider",
+          "provider_model_id",
+          "finish_reason",
+          "usage",
+          "cost",
+          "latency_ms",
+          "provider_request_id"
+        ],
+        "title": "CompletionResultResponse"
+      },
+      "CostResponse": {
+        "properties": {
+          "amount": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Amount"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency",
+            "description": "Código ISO 4217."
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "reported",
+              "estimated_from_catalog"
+            ],
+            "title": "Source"
+          }
+        },
+        "type": "object",
+        "required": [
+          "amount",
+          "currency",
+          "source"
+        ],
+        "title": "CostResponse"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -370,6 +580,47 @@
             "selected_model": "claude-sonnet"
           }
         ]
+      },
+      "UsageResponse": {
+        "properties": {
+          "input_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Tokens"
+          },
+          "output_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Tokens"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "reported",
+              "estimated"
+            ],
+            "title": "Source"
+          }
+        },
+        "type": "object",
+        "required": [
+          "input_tokens",
+          "output_tokens",
+          "source"
+        ],
+        "title": "UsageResponse"
       },
       "ValidationError": {
         "properties": {

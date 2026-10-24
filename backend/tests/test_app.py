@@ -31,7 +31,7 @@ def test_operation_ids_are_stable() -> None:
         for operation in path.values()
     }
 
-    assert operation_ids == {"get_health", "route_prompt", "list_models"}
+    assert operation_ids == {"get_health", "route_prompt", "list_models", "create_completion"}
 
 
 def test_cors_allows_configured_frontend() -> None:
