@@ -174,7 +174,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Author
 
-Sofía Casado Sainz, AI Engineer focused on AI agents, automation and decision systems.
+I'm Sofía Casado Sainz, a fourth-year Computer Engineering student at Universidad Francisco de Vitoria (Pozuelo de Alarcón, Madrid), specializing in AI engineering: agent systems, intelligent automation, decision engines, LLM routing and inference platforms.
 
 - **GitHub:** [@sofia-casado-sainz](https://github.com/sofia-casado-sainz)
 - **LinkedIn:** [sofia-casado-sainz](https://www.linkedin.com/in/sofia-casado-sainz-4094a028a)

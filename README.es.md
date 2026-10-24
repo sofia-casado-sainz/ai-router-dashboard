@@ -176,7 +176,7 @@ MIT. Consulta [LICENSE](LICENSE).
 
 ## Autora
 
-Sofía Casado Sainz, AI Engineer orientada a agentes de IA, automatización y sistemas de decisión.
+Soy Sofía Casado Sainz, estudiante de 4.º de Ingeniería Informática en la Universidad Francisco de Vitoria (Pozuelo de Alarcón, Madrid), y me estoy especializando en AI Engineering: sistemas de agentes, automatización inteligente, motores de decisión, enrutado de LLMs y plataformas de inferencia.
 
 - **GitHub:** [@sofia-casado-sainz](https://github.com/sofia-casado-sainz)
 - **LinkedIn:** [sofia-casado-sainz](https://www.linkedin.com/in/sofia-casado-sainz-4094a028a)
