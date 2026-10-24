@@ -6,6 +6,7 @@ Documentación técnica para trabajar en el proyecto. Para una visión general, 
 
 - **Python ≥ 3.11**
 - **Node.js ≥ 20** (recomendado 22) y npm
+- **PostgreSQL ≥ 16** para ejecutar el backend en local (con Docker Compose ya viene incluido)
 - **Docker** con Docker Compose v2 (opcional)
 
 ## Variables de entorno
@@ -23,7 +24,9 @@ cp frontend/.env.example frontend/.env.local
 | `LOG_LEVEL` | `DEBUG` · `INFO` · `WARNING` · `ERROR` · `CRITICAL`. | `INFO` |
 | `CORS_ORIGINS` | Orígenes CORS adicionales, separados por comas. | `http://127.0.0.1:3000` |
 | `HOST` / `PORT` | Dirección del backend en local. | `127.0.0.1` / `8010` |
-| `POSTGRES_*` | Credenciales de PostgreSQL en Docker. `POSTGRES_PASSWORD` es obligatoria. | ver `.env.example` |
+| `POSTGRES_*` | Conexión a PostgreSQL (`POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`). Las usan el backend y Docker. `POSTGRES_PASSWORD` es obligatoria en Docker. | `localhost`, `5432`, `ai_router`, `ai_router` |
+| `DATABASE_URL` | URL completa con driver asíncrono (`postgresql+asyncpg://…`). Si está definida, tiene prioridad sobre `POSTGRES_*`. | sin definir |
+| `SEED_DATABASE` | Solo Docker: carga el catálogo de modelos de ejemplo al arrancar el backend. | `true` |
 
 El backend lee, por orden de prioridad: variables de entorno, `backend/.env`, `.env` de la raíz y los valores por defecto de [`backend/core/config.py`](../backend/core/config.py). El frontend usa `frontend/.env.local` (`NEXT_PUBLIC_API_URL`).
 
@@ -35,17 +38,35 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 
+alembic upgrade head         # crea o actualiza las tablas
+python scripts/seed_models.py  # catálogo de modelos de ejemplo (idempotente)
 python main.py               # http://localhost:8010  (Swagger en /docs)
 pytest
 ```
+
+### Base de datos
+
+El backend usa PostgreSQL con SQLAlchemy 2 asíncrono (driver `asyncpg`) y Alembic para las migraciones. La app arranca aunque la base de datos no esté disponible: solo `GET /api/v1/models` responde `503`, y el router sigue funcionando porque todavía no la usa.
+
+- **Migraciones:** viven en `backend/migrations/versions/` y solo contienen esquema, nunca datos. Para crear una nueva tras cambiar `database/models.py`, ejecuta `alembic revision --autogenerate -m "descripción"`, revisa el archivo generado y aplica con `alembic upgrade head`.
+- **Seed:** `python scripts/seed_models.py` carga cinco modelos de ejemplo (GPT-5, Claude Sonnet, Gemini, DeepSeek y Ollama Local, este último inactivo). Los precios son datos de ejemplo, no tarifas reales. Solo inserta lo que falta, así que se puede repetir y no deshace cambios hechos a mano.
+- **Fechas:** las columnas de fecha guardan zona horaria y las conexiones usan UTC.
 
 ### Tests del backend
 
 La forma oficial de ejecutar los tests es `pytest` desde `backend/`, con el entorno virtual activado. También funcionan `python -m pytest` y `backend/.venv/bin/pytest backend` desde la raíz del repositorio. No hace falta ninguna variable de entorno.
 
+Los tests que usan base de datos funcionan por defecto con SQLite (`aiosqlite`) en un archivo temporal, sin infraestructura. Para ejecutarlos contra PostgreSQL, define `TEST_DATABASE_URL` con una base de datos **exclusiva para tests**, porque se vacía en cada test:
+
+```bash
+TEST_DATABASE_URL=postgresql+asyncpg://usuario:clave@localhost:5432/ai_router_test pytest
+```
+
+Con PostgreSQL también se ejecuta `tests/test_migrations.py`: aplica y revierte las migraciones y comprueba que el esquema resultante coincide con los modelos ORM. Con SQLite ese test se omite.
+
 La configuración vive en `[tool.pytest.ini_options]` de `pyproject.toml` e incluye `addopts = ["--disable-plugin-autoload"]`. Por defecto, pytest carga automáticamente cualquier plugin instalado que encuentre en `sys.path`, también los que no son del proyecto. En una máquina con ROS 2, `source /opt/ros/<distro>/setup.bash` exporta `PYTHONPATH` con los paquetes de ROS, y pytest intenta cargar sus plugins (`launch_testing`, `ament_*`). Fallan al importar dependencias que no están en el entorno virtual (por ejemplo, `ModuleNotFoundError: No module named 'lark'`) y los tests no llegan a ejecutarse. Con la carga automática desactivada, el resultado no depende de lo que haya instalado en el sistema.
 
-El flag existe desde pytest 8.4, por eso es la versión mínima en las dependencias de desarrollo. Si un test necesita un plugin, se activa explícitamente: por ejemplo, `-p anyio` para tests asíncronos con `@pytest.mark.anyio`, añadiéndolo a `addopts` si pasa a ser habitual.
+El flag existe desde pytest 8.4, por eso es la versión mínima en las dependencias de desarrollo. Los plugins que necesita el proyecto se activan explícitamente en `addopts`: hoy solo `-p anyio`, que ejecuta los tests asíncronos marcados con `@pytest.mark.anyio`.
 
 Los logs salen en JSON, una línea por evento:
 
@@ -59,6 +80,7 @@ Los logs salen en JSON, una línea por evento:
 |---|---|---|
 | `GET` | `/api/v1/health` | Estado del servicio → `{"status": "ok"}` |
 | `POST` | `/api/v1/route` | Recibe `{"prompt": "..."}` y devuelve el modelo seleccionado, la complejidad, el coste estimado y el motivo. |
+| `GET` | `/api/v1/models` | Catálogo de modelos con su precio vigente. `?active_only=true` devuelve solo los activos. `503` si la base de datos no está disponible. |
 
 ## Frontend
 
@@ -101,7 +123,7 @@ docker compose up --build
 | postgres | `localhost:5432` (volumen `postgres-data`) |
 
 - `API_URL` se incrusta en el bundle del frontend **al construir la imagen**. Si lo cambias, ejecuta `docker compose build frontend`.
-- PostgreSQL arranca con healthcheck y volumen persistente, pero el backend aún no se conecta a él.
+- El backend espera a que PostgreSQL esté sano, aplica las migraciones y, con `SEED_DATABASE=true` (por defecto), carga el catálogo de ejemplo antes de arrancar.
 
 ## Contrato frontend ↔ backend
 
@@ -118,22 +140,27 @@ Después actualiza [`frontend/src/types/api.ts`](../frontend/src/types/api.ts). 
 ```
 ai-router-dashboard/
 ├── backend/
-│   ├── main.py                  # create_app(): CORS, logging, routers en /api/v1
+│   ├── main.py                  # create_app(): CORS, logging, motor de BD, routers en /api/v1
 │   ├── pyproject.toml
-│   ├── api/routes.py            # endpoints HTTP
+│   ├── alembic.ini
+│   ├── api/                     # routes.py (endpoints) · dependencies.py (sesión y servicios)
 │   ├── core/                    # config.py (Settings) · logging.py (JSON)
-│   ├── router/                  # catalog.py (modelos) · model_selector.py (reglas)
+│   ├── domain/                  # objetos de dominio sin dependencias (CatalogModel, ModelPrice)
+│   ├── database/                # base, modelos ORM, sesiones y seed
+│   ├── migrations/              # Alembic (env.py asíncrono + versions/)
+│   ├── repositories/            # acceso a datos; devuelven objetos de dominio
+│   ├── router/                  # catalog.py (catálogo interno del router) · model_selector.py (reglas)
 │   ├── schemas/                 # modelos Pydantic de entrada/salida
-│   ├── services/                # orquestación entre API y dominio
-│   ├── scripts/export_openapi.py
-│   └── tests/
+│   ├── services/                # routing_service · model_catalog_service
+│   ├── scripts/                 # export_openapi.py · seed_models.py · docker-entrypoint.sh
+│   └── tests/                   # conftest.py: SQLite por defecto, PostgreSQL con TEST_DATABASE_URL
 ├── frontend/src/
 │   ├── app/                     # rutas: playground (inicio), dashboard, analytics, models, settings; /chat redirige a /playground (temporal, 307)
-│   ├── components/              # playground/, dashboard/, layout/
-│   ├── hooks/                   # usePlaygroundRouter, useBackendHealth, useDisclosure
+│   ├── components/              # playground/, dashboard/, models/, layout/
+│   ├── hooks/                   # usePlaygroundRouter, useModelCatalog, useBackendHealth, useDisclosure
 │   ├── lib/                     # config, formato, estilos de modelos
-│   ├── services/                # routerApi (backend real), api + mockData (dashboard)
-│   └── types/                   # api.ts (contrato HTTP), playground.ts, index.ts
+│   ├── services/                # apiClient (HTTP), routerApi y modelsApi (backend real), api + mockData (dashboard)
+│   └── types/                   # api.ts (contrato HTTP), playground.ts, models.ts, index.ts
 ├── contracts/openapi.json
 ├── docs/
 ├── docker-compose.yml
@@ -144,5 +171,7 @@ ai-router-dashboard/
 
 - **`pytest` falla al cargar plugins ajenos al proyecto** (por ejemplo, con ROS 2 y su `PYTHONPATH` exportado): ya no debería ocurrir, porque la configuración desactiva la carga automática de plugins (ver [Tests del backend](#tests-del-backend)). Si vuelve a pasar, comprueba que tienes pytest ≥ 8.4 en el entorno virtual (`pip install -e ".[dev]"`).
 - **`pip install` avisa de dependencias de paquetes de ROS** (por ejemplo, `launch-ros requires setuptools`): pip también ve los paquetes de ROS a través de `PYTHONPATH`. Es inofensivo; para una instalación sin ruido, ejecútalo en una terminal sin ROS cargado o con `PYTHONPATH= pip install -e ".[dev]"`.
+- **`GET /api/v1/models` responde 503 o la página Models muestra "No se pudo cargar el catálogo"**: el backend no llega a PostgreSQL. Comprueba que está levantado, las variables `POSTGRES_*` o `DATABASE_URL` y que has ejecutado `alembic upgrade head`.
+- **La página Models muestra "El catálogo está vacío"**: las tablas existen pero no hay datos; ejecuta `python scripts/seed_models.py`.
 - **El Playground muestra "No se pudo conectar con el backend"**: comprueba que el backend está levantado y que `NEXT_PUBLIC_API_URL` apunta a él, sin `/api/v1`.
 - **`typecheck` o `build` fallan con errores en `.next/dev/types/validator.ts` después de borrar o renombrar una ruta**: son tipos obsoletos de una sesión anterior de `npm run dev`. Next.js los guarda en `.next/dev`, y ni `next typegen` ni `next build` los regeneran. Borra la carpeta con `rm -rf frontend/.next/dev`; se vuelve a crear al arrancar `npm run dev`. En CI no ocurre, porque el clon empieza limpio.
