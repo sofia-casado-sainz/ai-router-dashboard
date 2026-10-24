@@ -47,7 +47,7 @@ flowchart LR
     EX --> RE
     EX --> DB
     EX --> FP[FakeProvider<br/>simulated responses]
-    RE -. S2b .-> DB
+    RE -. S2c .-> DB
     EX -. planned .-> OR[OpenRouter<br/>GPT · Claude · Gemini · DeepSeek]
     EX -. planned .-> OL[Ollama<br/>local models]
 ```
@@ -57,9 +57,9 @@ flowchart LR
 - **Frontend (Next.js).** A Playground where you describe a task, a Models page with the persistent catalog, and a dashboard with sample metrics. Each decision shows which model was chosen and why: estimated complexity, estimated cost and the reason.
 - **Backend (FastAPI).** Validates requests and passes them to the routing engine. Exposes a versioned API (`/api/v1`) documented with OpenAPI.
 - **Routing engine.** Analyzes the prompt with keyword rules and estimates its complexity and cost. The goal is for it to filter valid models (context, privacy, budget) and score candidates by quality, cost and latency.
-- **Database (PostgreSQL).** Stores the model catalog and its price history, with Alembic migrations and async access (SQLAlchemy + asyncpg). The router does not use it yet; that connection is part of S2b. The execution layer reads it to know where each model runs.
+- **Database (PostgreSQL).** Stores the model catalog and its price history, with Alembic migrations and async access (SQLAlchemy + asyncpg). The router does not use it yet; that connection is part of S2c. The execution layer reads it to know where each model runs.
 - **Execution layer ([ADR-0001](docs/adr/0001-inference-provider-abstraction.md)).** Separate from the router, which only decides. It resolves where the chosen model runs and calls that *inference provider* through a common interface, with normalized types, typed errors and timeouts. Today the only registered provider is `FakeProvider`, which returns simulated responses with no network and no cost.
-- **AI providers (planned).** OpenRouter for commercial models (S2) and Ollama for local ones (S3). Both offer an OpenAI-compatible API, so a single adapter should be enough for both.
+- **AI providers (planned).** OpenRouter for commercial models (S2b) and Ollama for local ones (S3). Both offer an OpenAI-compatible API, so a single adapter should be enough for both.
 
 A real decision from the system today:
 
@@ -89,12 +89,12 @@ Reason:      Arquitectura software avanzada  [arquitectura]
 
 ## Known limitations
 
-- **Three sources of model data.** The router uses its internal catalog (€ per 1K tokens), the Models page uses PostgreSQL (example prices in USD per million tokens) and the dashboard uses sample data. Unifying them is part of S2b.
+- **Three sources of model data.** The router uses its internal catalog (€ per 1K tokens), the Models page uses PostgreSQL (example prices in USD per million tokens) and the dashboard uses sample data. Unifying them is part of S2c.
 - **Example prices.** The seed prices are not real provider rates.
 - **`DATABASE_URL` format.** It must use the async driver (`postgresql+asyncpg://…`). Other formats, such as the usual `postgresql://…`, stop the backend from starting.
 - **No database connection timeout.** If the database host does not respond, `GET /api/v1/models` can take up to about 60 seconds to return a 503; the frontend gives up after 15 seconds.
-- **Simulated answers only.** The Playground shows the decision and does not call any model. `POST /api/v1/completions` only runs on `FakeProvider`, which returns a simulated response at zero cost; OpenRouter (S2) and Ollama (S3) are not integrated yet.
-- **Transitional model mapping.** The execution layer translates the router's ids to catalog models with a temporary table defined in ADR-0001 (for example, `gpt` → `openai/gpt-5`). It is architectural debt and goes away in S2b.
+- **Simulated answers only.** The Playground shows the decision and does not call any model. `POST /api/v1/completions` only runs on `FakeProvider`, which returns a simulated response at zero cost; OpenRouter (S2b) and Ollama (S3) are not integrated yet.
+- **Transitional model mapping.** The execution layer translates the router's ids to catalog models with a temporary table defined in ADR-0001 (for example, `gpt` → `openai/gpt-5`). It is architectural debt and goes away in S2c.
 
 ## Technical decisions
 
@@ -132,8 +132,9 @@ AI let me delegate part of the code writing while I kept control over the design
 | **S0.5 · Product** | Playground, honest navigation, clearly labeled sample data | ✅ |
 | **S1 · Persistence** | PostgreSQL, async SQLAlchemy, Alembic, model catalog with price history, Models page | ✅ |
 | **S1.5 · Portfolio and open source** | Documentation, license, CI and release preparation | ✅ |
-| **S2 · Execution foundation** | Execution layer (ADR-0001), `POST /api/v1/completions` with `FakeProvider`, OpenRouter provider | 🚧 |
-| **S2b · Router on the catalog** | Router on top of the persistent catalog, real calls in public environments, streaming, usage and cost tracking, generated types | 🎯 |
+| **S2a · Execution foundation** | Execution layer (ADR-0001), `POST /api/v1/completions` with `FakeProvider` | ✅ |
+| **S2b · OpenRouter foundation** | Error contract, request tracing, provider lifecycle and configuration (S2b-1); OpenRouter provider with mocked transport, catalog migration and exposure gate (S2b-2) | 🚧 |
+| **S2c · Router on the catalog** | Router on top of the persistent catalog, real calls in public environments, streaming, usage and cost tracking, generated types | 🎯 |
 | **S3 · Local and hybrid** | Ollama, health checks, fallback chains, privacy policy | 🎯 |
 | **S4 · Multi-team** | Authentication, organizations, API keys, usage limits | 🎯 |
 | **S5 · Router v2** | Cost/quality/latency scoring, classifier, evaluation with an own dataset | 🎯 |
@@ -143,7 +144,7 @@ AI let me delegate part of the code writing while I kept control over the design
 
 - **Keyword rules have a clear limit.** The engine picks the first rule that matches. "Hazme un resumen de este bug" ("summarize this bug for me") goes to the programming model because that rule comes before the summary rule. Going further requires classifying the task, not just looking for words.
 - **Savings need a reference point.** The dashboard used to show "savings" without saying compared to what. It now states the baseline: what it would have cost to always use the reference model.
-- **Duplicating the catalog broke the interface.** In S0 I moved it to the backend. Since S1, three sources of model data coexist for now (the router's internal catalog, PostgreSQL and the dashboard's sample data); unifying them is part of S2b.
+- **Duplicating the catalog broke the interface.** In S0 I moved it to the backend. Since S1, three sources of model data coexist for now (the router's internal catalog, PostgreSQL and the dashboard's sample data); unifying them is part of S2c.
 - **An unchecked contract drifts.** The OpenAPI schema is exported and a test fails if it no longer matches the API. Frontend types are still written by hand.
 - **Next.js public variables are fixed at build time.** In Docker, the backend URL ends up inside the image; changing it means rebuilding.
 - **What works on my machine can fail on a clean clone.** `tsc` failed without the types Next.js generates, and pytest loaded ROS 2 plugins installed on the system. Now `npm run typecheck` runs `next typegen` first, and pytest disables plugin autoloading.

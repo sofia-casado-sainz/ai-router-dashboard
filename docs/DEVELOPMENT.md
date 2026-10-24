@@ -92,13 +92,13 @@ La arquitectura está en [ADR-0001](adr/0001-inference-provider-abstraction.md).
 - **Capa de decisión:** el router. `POST /api/v1/route` solo decide y no cambia.
 - **Capa de ejecución:** `ExecutionService` (`services/execution_service.py`), que no depende de FastAPI, SQLAlchemy, HTTP ni del router. Recibe dos puertos inyectados (`domain/execution.py`): un `Decider` (`RouterDecider`, que reutiliza `route_prompt()`) y un `ModelResolver` (`CatalogModelResolver`, que consulta el catálogo). Después ejecuta la petición en el *inference provider* que indica el catálogo, a través de `ProviderRegistry`.
 
-**Estado en S2:**
+**Estado (S2a):**
 
 - **Solo está activo `FakeProvider`** (`providers/fake.py`): respuestas deterministas y simuladas, sin red, sin claves y con coste 0 USD. Es el único proveedor registrado al arrancar (`build_provider_registry()` en `main.py`).
 - Los modelos de ejemplo ejecutables tienen `inference_provider="fake"` y `provider_model_id` igual a su `model_key` en el catálogo (migración `0002` y seed). Ollama Local no es ejecutable.
-- La capa de ejecución traduce los ids del router a modelos del catálogo con una tabla temporal (`services/model_resolution.py`, por ejemplo `gpt` → `openai/gpt-5`). Es deuda arquitectónica documentada en el ADR y desaparece en S2b.
+- La capa de ejecución traduce los ids del router a modelos del catálogo con una tabla temporal (`services/model_resolution.py`, por ejemplo `gpt` → `openai/gpt-5`). Es deuda arquitectónica documentada en el ADR y desaparece en S2c.
 - No hay reintentos ni fallback automático: los errores se devuelven tipados.
-- **Previsto:** OpenRouter (S2) y Ollama (S3) como nuevos inference providers, sin cambiar el router.
+- **Previsto:** OpenRouter (S2b) y Ollama (S3) como nuevos inference providers, sin cambiar el router.
 
 Para probarlo en local, activa la ejecución y arranca el backend con el catálogo cargado:
 

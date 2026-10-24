@@ -1,6 +1,6 @@
 """Mapeo transitorio router_id → modelo del catálogo (ADR-0001, Architectural Debt).
 
-Deuda arquitectónica temporal, aprobada únicamente para S2. Se elimina en S2b,
+Deuda arquitectónica temporal, aprobada únicamente para S2. Se elimina en S2c,
 cuando el router lea directamente el catálogo persistente, que será la fuente de
 verdad de los modelos. No añadir lógica aquí ni usarlo fuera de ExecutionService
 (a través de CatalogModelResolver). Nunca elige un modelo por su cuenta: si un id
