@@ -6,9 +6,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 
+from api.middleware import RequestIdMiddleware
 from api.routes import router
 from core.config import Settings, get_settings
 from core.logging import configure_logging
+from core.request_context import REQUEST_ID_HEADER
 from database.session import create_engine, create_session_factory
 from providers.fake import FakeProvider
 from providers.registry import ProviderRegistry
@@ -61,8 +63,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.allowed_origins,
         allow_methods=["GET", "POST"],
-        allow_headers=["Content-Type"],
+        allow_headers=["Content-Type", REQUEST_ID_HEADER],
+        # El navegador solo puede leer las cabeceras que CORS expone.
+        expose_headers=[REQUEST_ID_HEADER],
     )
+    # Se añade después de CORS para envolverlo: también las respuestas de CORS
+    # (p. ej. un preflight) llevan X-Request-ID.
+    app.add_middleware(RequestIdMiddleware)
 
     app.state.settings = settings
     app.state.session_factory = create_session_factory(engine)

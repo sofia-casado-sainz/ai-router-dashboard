@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.exc import SQLAlchemyError
 
 from api.dependencies import ExecutionServiceDep, ModelCatalogServiceDep
+from core.request_context import get_request_id
 from providers.errors import (
     ModelNotAvailable,
     ProviderAuthError,
@@ -121,7 +122,10 @@ async def create_completion(
     """Decide el modelo (igual que /route) y lo ejecuta con el inference provider del catálogo."""
     try:
         execution = await service.execute(
-            body.prompt, max_output_tokens=body.max_output_tokens, temperature=body.temperature
+            body.prompt,
+            max_output_tokens=body.max_output_tokens,
+            temperature=body.temperature,
+            request_id=get_request_id(),
         )
     except ProviderError as error:
         log = logger.error if isinstance(error, ProviderAuthError) else logger.warning
@@ -137,6 +141,19 @@ async def create_completion(
             "El catálogo de modelos no está disponible: no se pudo conectar con la base de datos.",
         ) from error
 
+    result = execution.result
+    # Correlación request_id ↔ provider_request_id (el filtro de logging añade el
+    # request_id). Nunca se registra el prompt.
+    logger.info(
+        "Ejecución completada",
+        extra={
+            "inference_provider": result.inference_provider,
+            "provider_model_id": result.provider_model_id,
+            "provider_request_id": result.provider_request_id,
+            "finish_reason": result.finish_reason,
+            "latency_ms": result.latency_ms,
+        },
+    )
     return CompletionResponse(
         decision=execution.decision.details,
         completion=CompletionResultResponse.from_result(execution.result),
