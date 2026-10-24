@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from domain.completions import CompletionRequest, CompletionResult, Message
+from domain.execution import Decision, ResolvedModel
 from providers.errors import (
     ModelNotAvailable,
     ProviderAuthError,
@@ -34,6 +35,31 @@ def make_service(*providers: FakeProvider, **kwargs: object) -> ExecutionService
     for provider in providers:
         registry.register(provider)
     return ExecutionService(registry, **kwargs)  # type: ignore[arg-type]
+
+
+class StubDecider:
+    def __init__(self, model_id: str = "gpt") -> None:
+        self.model_id = model_id
+
+    def decide(self, prompt: str) -> Decision[dict]:
+        return Decision(model_id=self.model_id, details={"prompt": prompt})
+
+
+class StubResolver:
+    def __init__(
+        self,
+        target: ResolvedModel = ResolvedModel("fake", "gpt-5"),
+        error: Exception | None = None,
+    ) -> None:
+        self.target = target
+        self.error = error
+        self.requested: list[str] = []
+
+    async def resolve(self, model_id: str) -> ResolvedModel:
+        self.requested.append(model_id)
+        if self.error is not None:
+            raise self.error
+        return self.target
 
 
 class SlowProvider(FakeProvider):
@@ -150,6 +176,86 @@ async def test_unexpected_error_becomes_unavailable(caplog: pytest.LogCaptureFix
 def test_default_timeout_must_be_positive() -> None:
     with pytest.raises(ValueError):
         ExecutionService(ProviderRegistry(), default_timeout_seconds=0)
+
+
+@pytest.mark.anyio
+async def test_execute_decides_resolves_and_completes() -> None:
+    resolver = StubResolver()
+    service = make_service(FakeProvider(), decider=StubDecider("gpt"), resolver=resolver)
+
+    execution = await service.execute("Resume este correo", max_output_tokens=100)
+
+    assert execution.decision.model_id == "gpt"
+    assert execution.decision.details == {"prompt": "Resume este correo"}
+    assert resolver.requested == ["gpt"]
+    assert execution.result.inference_provider == "fake"
+    assert execution.result.provider_model_id == "gpt-5"
+    assert execution.result.content.startswith("[Respuesta simulada de gpt-5]")
+    assert "Resume este correo" in execution.result.content
+    assert execution.result.latency_ms is not None
+
+
+@pytest.mark.anyio
+async def test_execute_passes_request_options() -> None:
+    service = make_service(FakeProvider(), decider=StubDecider(), resolver=StubResolver())
+
+    execution = await service.execute("Resume este correo", max_output_tokens=5)
+
+    assert execution.result.finish_reason == "length"
+    assert execution.result.usage.output_tokens == 5
+
+
+@pytest.mark.anyio
+async def test_execute_propagates_model_not_available() -> None:
+    error = ModelNotAvailable("sin correspondencia")
+    service = make_service(FakeProvider(), decider=StubDecider(), resolver=StubResolver(error=error))
+
+    with pytest.raises(ModelNotAvailable) as raised:
+        await service.execute("Hola", max_output_tokens=10)
+
+    assert raised.value is error
+
+
+@pytest.mark.anyio
+async def test_execute_with_unregistered_inference_provider_is_not_configured() -> None:
+    resolver = StubResolver(ResolvedModel("openrouter", "openai/gpt-5"))
+    service = make_service(FakeProvider(), decider=StubDecider(), resolver=resolver)
+
+    with pytest.raises(ProviderNotConfigured):
+        await service.execute("Hola", max_output_tokens=10)
+
+
+@pytest.mark.anyio
+async def test_execute_requires_decider_and_resolver() -> None:
+    with pytest.raises(RuntimeError):
+        await make_service(FakeProvider()).execute("Hola", max_output_tokens=10)
+
+
+def _imported_modules(path: Path) -> set[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    return {
+        alias.name for node in ast.walk(tree) if isinstance(node, ast.Import) for alias in node.names
+    } | {node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom) and node.module}
+
+
+def test_execution_ports_are_framework_agnostic() -> None:
+    """Los puertos de domain/execution.py tampoco dependen de frameworks, HTTP, BD ni del router."""
+    source = Path(__file__).resolve().parent.parent / "domain" / "execution.py"
+    forbidden = (
+        "fastapi",
+        "starlette",
+        "pydantic",
+        "sqlalchemy",
+        "httpx",
+        "router",
+        "api",
+        "schemas",
+        "database",
+        "repositories",
+        "services",
+    )
+
+    assert not {name for name in _imported_modules(source) if name.split(".")[0] in forbidden}
 
 
 def test_execution_service_is_framework_agnostic() -> None:
