@@ -68,6 +68,55 @@
           }
         }
       }
+    },
+    "/api/v1/models": {
+      "get": {
+        "tags": [
+          "models"
+        ],
+        "summary": "List Models",
+        "description": "Catálogo persistente de modelos con su precio vigente.",
+        "operationId": "list_models",
+        "parameters": [
+          {
+            "name": "active_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Devolver solo los modelos activos.",
+              "default": false,
+              "title": "Active Only"
+            },
+            "description": "Devolver solo los modelos activos."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelListResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Base de datos no disponible."
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -108,6 +157,123 @@
           "deepseek"
         ],
         "title": "ModelId"
+      },
+      "ModelListResponse": {
+        "properties": {
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelResponse"
+            },
+            "type": "array",
+            "title": "Models"
+          }
+        },
+        "type": "object",
+        "required": [
+          "models"
+        ],
+        "title": "ModelListResponse",
+        "examples": [
+          {
+            "models": [
+              {
+                "active": true,
+                "context_window": 200000,
+                "current_price": {
+                  "currency": "USD",
+                  "input_cost_per_million": 2.5,
+                  "output_cost_per_million": 12.0
+                },
+                "display_name": "Claude Sonnet",
+                "id": "6f1c2b8e-3d4a-4f5b-9c6d-7e8f9a0b1c2d",
+                "model_key": "claude-sonnet",
+                "provider": "anthropic"
+              }
+            ]
+          }
+        ]
+      },
+      "ModelPriceResponse": {
+        "properties": {
+          "input_cost_per_million": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Input Cost Per Million",
+            "description": "Coste por millón de tokens de entrada."
+          },
+          "output_cost_per_million": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Output Cost Per Million",
+            "description": "Coste por millón de tokens de salida."
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency",
+            "description": "Código ISO 4217."
+          }
+        },
+        "type": "object",
+        "required": [
+          "input_cost_per_million",
+          "output_cost_per_million",
+          "currency"
+        ],
+        "title": "ModelPriceResponse"
+      },
+      "ModelResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "model_key": {
+            "type": "string",
+            "title": "Model Key"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "context_window": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Context Window",
+            "description": "Tokens de contexto."
+          },
+          "active": {
+            "type": "boolean",
+            "title": "Active",
+            "description": "Si el modelo está disponible para el enrutado."
+          },
+          "current_price": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelPriceResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Precio vigente; null si no tiene."
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "provider",
+          "model_key",
+          "display_name",
+          "context_window",
+          "active",
+          "current_price"
+        ],
+        "title": "ModelResponse"
       },
       "RouteRequest": {
         "properties": {
