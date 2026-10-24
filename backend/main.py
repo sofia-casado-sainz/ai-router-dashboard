@@ -10,8 +10,21 @@ from api.routes import router
 from core.config import Settings, get_settings
 from core.logging import configure_logging
 from database.session import create_engine, create_session_factory
+from providers.fake import FakeProvider
+from providers.registry import ProviderRegistry
 
 logger = logging.getLogger(__name__)
+
+
+def build_provider_registry() -> ProviderRegistry:
+    """Inference providers disponibles (ADR-0001).
+
+    En S2 solo FakeProvider: sin red, sin claves y sin coste. Un proveedor que no
+    esté registrado aquí responde como ProviderNotConfigured.
+    """
+    registry = ProviderRegistry()
+    registry.register(FakeProvider())
+    return registry
 
 
 def _operation_id(route: APIRoute) -> str:
@@ -51,7 +64,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["Content-Type"],
     )
 
+    app.state.settings = settings
     app.state.session_factory = create_session_factory(engine)
+    app.state.provider_registry = build_provider_registry()
     app.include_router(router, prefix=settings.api_prefix)
     return app
 
