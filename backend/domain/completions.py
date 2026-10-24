@@ -104,6 +104,19 @@ class CompletionChunk:
 
 
 @dataclass(frozen=True, slots=True)
+class ProviderModel:
+    """Un modelo tal y como lo publica un inference provider (base de la sincronización del catálogo)."""
+
+    provider_model_id: str
+    display_name: str | None = None
+    context_window: int | None = None
+    # Precios por millón de tokens, la unidad de model_prices; None si el proveedor no los da.
+    input_cost_per_million: Decimal | None = None
+    output_cost_per_million: Decimal | None = None
+    currency: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class ProviderCapabilities:
     streaming: bool = False
     # Los datos no salen de la máquina del usuario (p. ej. Ollama).
