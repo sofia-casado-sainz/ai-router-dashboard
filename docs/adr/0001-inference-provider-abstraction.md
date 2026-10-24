@@ -6,7 +6,9 @@
 
 ## Status
 
-**Aceptado.** Este ADR define la arquitectura de ejecución de modelos para S2. Nada de lo descrito está implementado todavía.
+**Aceptado. Implementado en S2a** (`16be2c4`…`616fd05` y `f0b250c`…`ff280d4`).
+
+Ampliado por [ADR-0002](0002-execution-wiring-and-provider-operations.md) (decisiones de implementación y operación) y [ADR-0003](0003-exposure-gate-for-real-inference-providers.md) (requisitos antes de usar un proveedor real). Donde difieran, prevalecen esos ADRs. Este documento no se reescribe: las fases citadas aquí se corresponden con S2a, S2b (S2b-1 y S2b-2) y S2c según ADR-0002.
 
 El anexo sobre licencia es una recomendación independiente de la arquitectura de proveedores. No modifica el archivo `LICENSE`; si se aprueba, se aplicará en su propio cambio.
 
@@ -183,7 +185,7 @@ Para respetar la regla de que el router no depende todavía del catálogo persis
 
 - **Es deuda arquitectónica temporal.**
 - **Está aprobada únicamente para S2.**
-- **Se elimina en S2b,** cuando el router lea directamente el catálogo persistente.
+- **Se elimina en S2c,** cuando el router lea directamente el catálogo persistente.
 - **El catálogo persistente será la fuente de verdad de los modelos.** La tabla no debe crecer con lógica propia ni usarse fuera de `ExecutionService`.
 - Si un `router_id` no tiene correspondencia, `POST /api/v1/completions` devuelve un error tipado (`ModelNotAvailable`). La tabla nunca elige un modelo por su cuenta.
 
@@ -201,7 +203,7 @@ Para respetar la regla de que el router no depende todavía del catálogo persis
 **Negativas**
 
 - Más piezas que una llamada directa: interfaz, registro, servicio y tipos.
-- El mapeo transitorio es deuda hasta S2b.
+- El mapeo transitorio es deuda hasta S2c.
 - Normalizar oculta particularidades de cada proveedor, salvo las que se expongan como capacidades.
 - El primer endpoint que gasta dinero exige controles nuevos: feature flag, tope de tokens y modelos permitidos.
 - Sin reintentos ni fallback, un fallo puntual del proveedor llega directamente al usuario hasta S3.
@@ -252,7 +254,7 @@ No se implementa en S2:
 
 **S2 (este sprint):** interfaz, tipos, errores, `ProviderRegistry`, `ExecutionService`, `FakeProvider`, `OpenRouterProvider` probado con transporte simulado, migración del catálogo (`inference_provider`, `provider_model_id`) y `POST /api/v1/completions` detrás de `COMPLETIONS_ENABLED`.
 
-**S2b:**
+**S2c** (reparto actualizado en ADR-0002):
 
 - Router → catálogo persistente y eliminación del mapeo transitorio. Cambia `POST /api/v1/route`: el coste estimado pasa de € por 1.000 tokens a USD por millón, y `selected_model` pasa de `gpt` a `gpt-5`. Necesita su propio ADR y una actualización deliberada del test de compatibilidad.
 - Llamadas reales a OpenRouter en entornos públicos, después de añadir autenticación o límites de uso.
