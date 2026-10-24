@@ -4,6 +4,7 @@ from collections.abc import Iterator
 import pytest
 from fastapi.testclient import TestClient
 
+from api.errors import ERROR_MESSAGES
 from core.config import Settings
 from domain.completions import MAX_OUTPUT_TOKENS_LIMIT, CompletionRequest, CompletionResult
 from main import app as default_app
@@ -62,6 +63,7 @@ def test_disabled_by_default_returns_503(catalog_client: TestClient) -> None:
     response = catalog_client.post(URL, json={"prompt": "Hola"})
 
     assert response.status_code == 503
+    assert response.json()["code"] == "completions_disabled"
     assert "COMPLETIONS_ENABLED=false" in response.json()["detail"]
 
 
@@ -110,25 +112,29 @@ def test_invalid_requests_are_rejected(client: TestClient, payload: dict) -> Non
 
 
 @pytest.mark.parametrize(
-    ("error", "status_code"),
+    ("error", "status_code", "code"),
     [
-        (ProviderNotConfigured("sin clave"), 503),
-        (ProviderUnavailable("caído"), 503),
-        (ProviderTimeout("lento"), 504),
-        (ProviderRateLimited("límite"), 429),
-        (ProviderAuthError("clave inválida"), 502),
-        (ProviderBadRequest("contexto excedido"), 422),
-        (ModelNotAvailable("modelo retirado"), 502),
+        (ProviderNotConfigured("sin clave"), 503, "provider_not_configured"),
+        (ProviderUnavailable("caído"), 503, "provider_unavailable"),
+        (ProviderTimeout("lento"), 504, "provider_timeout"),
+        (ProviderRateLimited("límite"), 429, "provider_rate_limited"),
+        (ProviderAuthError("clave inválida"), 502, "provider_auth_error"),
+        # ADR-0002: 400, no 422; 422 queda para la validación de la petición.
+        (ProviderBadRequest("contexto excedido"), 400, "provider_bad_request"),
+        (ModelNotAvailable("modelo retirado"), 502, "model_not_available"),
     ],
     ids=lambda value: type(value).__name__ if isinstance(value, ProviderError) else str(value),
 )
 def test_provider_errors_follow_adr_mapping(
-    client: TestClient, error: ProviderError, status_code: int
+    client: TestClient, error: ProviderError, status_code: int, code: str
 ) -> None:
     response = with_provider(client, FakeProvider(error=error)).post(URL, json={"prompt": "Hola"})
 
     assert response.status_code == status_code
-    assert response.json()["detail"] == str(error)
+    assert response.json()["code"] == code
+    # Mensaje fijo por código: el texto del proveedor no llega al cliente.
+    assert response.json()["detail"] == ERROR_MESSAGES[code]
+    assert str(error) not in response.text
 
 
 def test_rate_limit_sets_retry_after_header(client: TestClient) -> None:
@@ -149,6 +155,7 @@ def test_unexpected_provider_failure_returns_503(client: TestClient) -> None:
     response = with_provider(client, BrokenProvider()).post(URL, json={"prompt": "Hola"})
 
     assert response.status_code == 503
+    assert response.json()["code"] == "provider_unavailable"
 
 
 def test_empty_catalog_returns_502(database_url: str) -> None:
@@ -156,7 +163,7 @@ def test_empty_catalog_returns_502(database_url: str) -> None:
         response = client.post(URL, json={"prompt": "Hola"})
 
     assert response.status_code == 502
-    assert "no existe en el catálogo" in response.json()["detail"]
+    assert response.json()["code"] == "model_not_available"
 
 
 def test_database_unavailable_returns_503() -> None:
@@ -170,6 +177,7 @@ def test_database_unavailable_returns_503() -> None:
     response = client.post(URL, json={"prompt": "Hola"})
 
     assert response.status_code == 503
+    assert response.json()["code"] == "catalog_unavailable"
     assert "base de datos" in response.json()["detail"]
     # /route no depende de la base de datos ni de la ejecución.
     assert client.post("/api/v1/route", json={"prompt": "Hola"}).status_code == 200

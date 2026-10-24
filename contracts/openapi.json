@@ -103,7 +103,14 @@
             }
           },
           "503": {
-            "description": "Base de datos no disponible."
+            "description": "Ejecución desactivada, proveedor no configurado o no disponible, o catálogo no disponible (`completions_disabled`, `provider_not_configured`, `provider_unavailable`, `catalog_unavailable`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -147,17 +154,55 @@
               }
             }
           },
+          "400": {
+            "description": "El proveedor rechazó la petición (`provider_bad_request`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "429": {
-            "description": "El proveedor limitó la petición."
+            "description": "El proveedor limitó la petición (`provider_rate_limited`), con `Retry-After`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           },
           "502": {
-            "description": "Modelo no disponible o credenciales rechazadas."
+            "description": "Modelo no disponible, credenciales rechazadas u otro error del proveedor (`model_not_available`, `provider_auth_error`, `provider_error`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           },
           "503": {
-            "description": "Ejecución desactivada, proveedor no disponible o catálogo no disponible."
+            "description": "Ejecución desactivada, proveedor no configurado o no disponible, o catálogo no disponible (`completions_disabled`, `provider_not_configured`, `provider_unavailable`, `catalog_unavailable`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           },
           "504": {
-            "description": "El proveedor no respondió a tiempo."
+            "description": "El proveedor no respondió a tiempo (`provider_timeout`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -330,6 +375,58 @@
           "source"
         ],
         "title": "CostResponse"
+      },
+      "ErrorResponse": {
+        "properties": {
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "description": "Mensaje fijo para el código; nunca texto de un proveedor."
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "completions_disabled",
+              "provider_not_configured",
+              "provider_unavailable",
+              "provider_timeout",
+              "provider_rate_limited",
+              "provider_auth_error",
+              "provider_bad_request",
+              "model_not_available",
+              "catalog_unavailable",
+              "provider_error"
+            ],
+            "title": "Code"
+          },
+          "request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Id",
+            "description": "Mismo valor que la cabecera X-Request-ID."
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail",
+          "code",
+          "request_id"
+        ],
+        "title": "ErrorResponse",
+        "description": "Error de la API, salvo la validación de la petición (422).",
+        "examples": [
+          {
+            "code": "provider_timeout",
+            "detail": "El proveedor no respondió a tiempo.",
+            "request_id": "6f1c2b8e-3d4a-4f5b-9c6d-7e8f9a0b1c2d"
+          }
+        ]
       },
       "HTTPValidationError": {
         "properties": {

@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 
+from api.errors import ApiError, api_error_handler
 from api.middleware import RequestIdMiddleware
 from api.routes import router
 from core.config import Settings, get_settings
@@ -70,6 +71,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Se añade después de CORS para envolverlo: también las respuestas de CORS
     # (p. ej. un preflight) llevan X-Request-ID.
     app.add_middleware(RequestIdMiddleware)
+    app.add_exception_handler(ApiError, api_error_handler)
 
     app.state.settings = settings
     app.state.session_factory = create_session_factory(engine)
