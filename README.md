@@ -1,171 +1,159 @@
-# AI Router Dashboard
+# AI Router
 
-**Escribes una tarea y el sistema decide qué modelo de IA debe resolverla, según coste, calidad, complejidad y privacidad.**
+**Describe a task and AI Router decides which AI model it would use, and explains why.** Today it decides with keyword rules over an example catalog; the goal is to balance cost, quality, latency and privacy.
 
-![Estado](https://img.shields.io/badge/estado-prototipo_funcional-orange)
+English · [Español](README.es.md)
+
+![Status](https://img.shields.io/badge/status-working_prototype-orange)
 ![Next.js](https://img.shields.io/badge/Next.js-16-black)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688)
 ![Python](https://img.shields.io/badge/Python-3.11+-3776AB)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16+-4169E1)
+![License](https://img.shields.io/badge/license-MIT-blue)
 
-> **Estado actual.** El flujo completo funciona de extremo a extremo: interfaz → API → motor de enrutado → decisión explicada en pantalla. Desde el Sprint S1, el catálogo de modelos y sus precios viven en PostgreSQL y se consultan en la página Models. Lo que todavía no es real: la decisión se toma con reglas (no con un clasificador), el router aún usa su propio catálogo interno con precios simulados y las métricas del dashboard son datos de ejemplo. Aún no se llama a ningún proveedor de IA. Lo detallo más abajo, en [Qué funciona hoy](#qué-funciona-hoy).
+> **Current status.** The full flow works end to end: interface → API → routing engine → decision explained on screen. The model catalog and its price history live in PostgreSQL and are shown on the Models page. What is not real yet: decisions come from keyword rules, the router still uses its own internal catalog with simulated prices, and the dashboard shows sample data. No AI provider is called yet. Details in [Known limitations](#known-limitations).
 
 ---
 
-## El problema
+## Why it exists
 
-Hoy hay decenas de modelos de IA útiles, y elegir cuál usar para cada tarea se ha convertido en un problema en sí mismo.
+I wanted to make better use of the AI tools I use to study, write code and build projects. The ecosystem keeps changing: new models appear, prices change and capabilities change.
 
-GPT, Claude, Gemini y DeepSeek tienen precios, ventanas de contexto y puntos fuertes distintos. A eso se suman los modelos que puedes ejecutar en tu propia máquina con Ollama, que no cuestan nada por petición pero no siempre llegan al mismo nivel.
+AI Router started as a tool to centralize that decision for myself, and later as a platform that could help other people with the same problem.
 
-En la práctica, la mayoría de equipos hace una de estas dos cosas:
+## The problem
 
-- **Usar siempre el modelo más potente**, y pagar precio premium por resumir un correo.
-- **Usar siempre el más barato**, y aceptar malas respuestas en las tareas que de verdad importan.
+There are many useful AI models, and each has different prices, context windows and strengths. On top of that there are local models you can run with Ollama: no cost per request, but not always at the same level.
 
-Ninguna de las dos es una decisión: es la ausencia de una. Este proyecto intenta que esa elección sea automática, medible y explicable.
+Without a clear criterion, it is easy to always use the same model: the most capable one, paying too much for simple tasks, or the cheapest one, accepting weaker answers when the task needs more. AI Router tries to automate that choice and explain each decision.
 
-## Por qué lo estoy construyendo
+## How it differs
 
-Quería aprovechar mejor las IAs que uso para estudiar, programar y construir proyectos. El ecosistema cambia constantemente: aparecen modelos nuevos, cambian los precios y cambian las capacidades.
+- **From using one assistant directly.** Some assistants already pick a model automatically, but only among their own. AI Router compares models from several providers and shows the estimated cost of each decision.
+- **From OpenRouter Auto.** OpenRouter can also pick a model for you. The goal of AI Router is that every decision is explainable and follows your own rules (budget, privacy, allowed models), with the option of using local models.
+- **What exists today** is the explainable part. Custom rules, privacy policies and local models are on the roadmap.
 
-AI Router nace primero como una herramienta para centralizar esa decisión para mí mismo, y después como una plataforma que pueda ayudar a otras personas con el mismo problema.
-
-Como proyecto, también quería que me obligara a trabajar como en un producto real:
-
-- **Arquitectura full stack de verdad**: un frontend y un backend separados, con un contrato entre ellos que no se rompa en silencio.
-- **El routing como problema de decisión**: cómo estimar la complejidad de una tarea, cómo comparar calidad y coste, y cómo explicar al usuario por qué se eligió un modelo.
-- **Diseñar para crecer**: configuración, logging, versionado de API e infraestructura antes de que sean un problema.
-
-## Cómo funciona
+## How it works
 
 ```mermaid
 flowchart LR
-    U([Usuario]) --> FE[Frontend<br/>Next.js]
+    U([User]) --> FE[Frontend<br/>Next.js]
     FE -->|POST /api/v1/route| BE[Backend<br/>FastAPI]
-    BE --> RE{{Motor de<br/>enrutado}}
-    RE --> CAT[(Catálogo interno<br/>del router)]
-    RE -. próximamente .-> OR[OpenRouter<br/>GPT · Claude · Gemini · DeepSeek]
-    RE -. próximamente .-> OL[Ollama<br/>modelos locales]
-    BE -->|GET /api/v1/models| DB[(PostgreSQL<br/>catálogo de modelos)]
+    BE --> RE{{Routing<br/>engine}}
+    RE --> CAT[(Router's internal<br/>catalog)]
+    BE -->|GET /api/v1/models| DB[(PostgreSQL<br/>model catalog)]
     RE -. S2 .-> DB
+    RE -. planned .-> OR[OpenRouter<br/>GPT · Claude · Gemini · DeepSeek]
+    RE -. planned .-> OL[Ollama<br/>local models]
 ```
 
-<sub>Líneas continuas: funciona hoy. Discontinuas: diseñado, pendiente de implementar.</sub>
+<sub>Solid lines: working today. Dashed lines: designed, not implemented yet.</sub>
 
-- **Frontend (Next.js).** La parte que ve el usuario: un Playground donde describes una tarea y un dashboard de consumo y costes. Cada decisión muestra *qué* modelo se eligió y *por qué*: complejidad estimada, coste previsto y el motivo de la decisión.
-- **Backend (FastAPI).** Recibe la petición, la valida y se la pasa al motor de enrutado. Expone una API versionada (`/api/v1`) y documentada automáticamente con OpenAPI.
-- **Motor de enrutado.** El corazón del proyecto. Hoy analiza el prompt con reglas y estima su complejidad y su coste. El objetivo es que filtre los modelos válidos (contexto, privacidad, presupuesto) y puntúe los candidatos equilibrando calidad, coste y latencia.
-- **Base de datos (PostgreSQL).** Desde S1 guarda el catálogo de modelos y su histórico de precios, con migraciones de Alembic y acceso asíncrono (SQLAlchemy + asyncpg). La página Models lo consulta a través de la API. El router todavía no lo usa: se conectará en S2. Más adelante guardará también el historial de peticiones y el consumo real por equipo.
-- **Proveedores de IA.** OpenRouter dará acceso a los modelos comerciales con una sola integración, y Ollama a los modelos locales. Los dos hablan el mismo protocolo (compatible con OpenAI), así que un único adaptador sirve para ambos.
+- **Frontend (Next.js).** A Playground where you describe a task, a Models page with the persistent catalog, and a dashboard with sample metrics. Each decision shows which model was chosen and why: estimated complexity, estimated cost and the reason.
+- **Backend (FastAPI).** Validates requests and passes them to the routing engine. Exposes a versioned API (`/api/v1`) documented with OpenAPI.
+- **Routing engine.** Analyzes the prompt with keyword rules and estimates its complexity and cost. The goal is for it to filter valid models (context, privacy, budget) and score candidates by quality, cost and latency.
+- **Database (PostgreSQL).** Stores the model catalog and its price history, with Alembic migrations and async access (SQLAlchemy + asyncpg). The router does not use it yet; that connection is part of S2.
+- **AI providers (planned).** OpenRouter for commercial models and Ollama for local ones. Both offer an OpenAI-compatible API, so a single adapter should be enough for both.
 
-Así es una decisión real del sistema hoy:
+A real decision from the system today:
 
 ```text
-Prompt:  "Diseña una arquitectura cloud escalable"
+Prompt:      "Diseña una arquitectura cloud escalable"
 
-Modelo:       Claude Sonnet (Anthropic)
-Complejidad:  8/10
-Coste:        ~0,018 € · 1.210 tokens estimados
-Motivo:       Arquitectura software avanzada  [arquitectura]
+Model:       Claude Sonnet (Anthropic)
+Complexity:  8/10
+Cost:        ~€0.018 · 1,210 estimated tokens
+Reason:      Arquitectura software avanzada  [arquitectura]
 ```
 
-## Qué funciona hoy
+## What works today
 
-**✅ Implementado**
-- Playground conectado al backend real, con estados de carga, error y reintento.
-- Tarjeta de decisión: modelo, proveedor, complejidad, coste estimado y motivo.
-- Motor de enrutado por reglas, con estimación de complejidad y coste.
-- Catálogo persistente de modelos en PostgreSQL: proveedor, ventana de contexto, estado y precio vigente, con histórico de precios. Se expone en `GET /api/v1/models` y se muestra en la página Models.
-- Migraciones con Alembic y un seed idempotente con modelos de ejemplo.
-- La interfaz no se rompe si el backend devuelve un modelo que no conoce.
-- API versionada (`/api/v1`), configuración centralizada y logs estructurados en JSON.
-- Contrato OpenAPI exportado y protegido por un test.
-- Docker Compose con frontend, backend y PostgreSQL; el backend aplica las migraciones y el seed al arrancar.
-- Dashboard con métricas *de ejemplo*: el diseño es real, los datos todavía no.
+- Playground connected to the real backend, with loading, error and retry states.
+- Decision card: model, provider, complexity, estimated cost, reason and matched keywords.
+- Rule-based routing engine with complexity and cost estimation.
+- Persistent model catalog in PostgreSQL: provider, context window, status and current price, with price history. Exposed at `GET /api/v1/models` and shown on the Models page.
+- Alembic migrations and an idempotent seed with example models.
+- The interface does not break if the backend returns a model it does not know.
+- Versioned API (`/api/v1`), centralized configuration and structured JSON logs.
+- OpenAPI contract exported and checked by a test.
+- Docker Compose with frontend, backend and PostgreSQL; the backend applies migrations and the seed on startup.
+- Dashboard with **sample** metrics: the layout is real, the data is not.
 
-**🔜 Siguiente (S2)**
-- Conectar el router al catálogo persistente, para que haya una sola fuente de verdad de modelos y precios.
-- Tipos TypeScript generados automáticamente desde OpenAPI.
+## Known limitations
 
-**🎯 Objetivos**
-- Respuestas reales vía OpenRouter, con streaming.
-- Modelos locales con Ollama y una política de privacidad del tipo "lo sensible no sale de mi máquina".
-- Motor de puntuación coste / calidad / latencia, configurable por equipo.
-- Presupuestos con alertas y límite duro, y analítica de ahorro frente a una línea base.
-- Endpoint compatible con OpenAI (`model: "auto"`), para usar el router desde cualquier aplicación existente.
+- **Three sources of model data.** The router uses its internal catalog (€ per 1K tokens), the Models page uses PostgreSQL (example prices in USD per million tokens) and the dashboard uses sample data. Unifying them is part of S2.
+- **Example prices.** The seed prices are not real provider rates.
+- **`DATABASE_URL` format.** It must use the async driver (`postgresql+asyncpg://…`). Other formats, such as the usual `postgresql://…`, stop the backend from starting.
+- **No database connection timeout.** If the database host does not respond, `GET /api/v1/models` can take up to about 60 seconds to return a 503; the frontend gives up after 15 seconds.
+- **No real answers.** The Playground shows the decision; it does not call the chosen model.
 
-## Decisiones técnicas
+## Technical decisions
 
-No elegí las tecnologías por moda. Esto es lo que me aporta cada una y lo que sacrifico a cambio.
+What each technology gives me and what it costs.
 
-**Next.js.** Me permite tener en un solo proyecto la interfaz y, más adelante, una capa de servidor propia (BFF) para que las claves y sesiones nunca lleguen al navegador. Los componentes de servidor encajan bien con un dashboard que carga datos agregados.
-*Coste:* el framework evoluciona rápido, y algunas cosas (como las variables `NEXT_PUBLIC_*`, que se fijan al compilar) condicionan el despliegue.
+**Next.js.** One project for the interface and, later, a server layer of its own (BFF) so that keys and sessions never reach the browser.
+*Cost:* the framework moves fast, and some details (such as `NEXT_PUBLIC_*` variables being fixed at build time) affect deployment.
 
-**FastAPI (Python).** El ecosistema de IA vive en Python: SDKs, embeddings y clasificadores. Pydantic valida cada petición y genera el esquema OpenAPI sin esfuerzo, y ese esquema es la base del contrato con el frontend.
-*Coste:* dos lenguajes en el mismo producto. Lo compenso con un contrato explícito entre ambos.
+**FastAPI (Python).** Most AI tooling lives in Python: SDKs, embeddings and classifiers. Pydantic validates each request and generates the OpenAPI schema, which is the basis of the contract with the frontend.
+*Cost:* two languages in one product. A contract checked by a test keeps them in sync.
 
-**PostgreSQL.** Los datos de este producto son relacionales: organizaciones, peticiones, modelos, precios con histórico. Necesito agregaciones SQL serias para la analítica, Row-Level Security para aislar a cada equipo y, con pgvector, la opción de hacer routing semántico sin añadir otra base de datos.
-*Coste:* más disciplina de esquema y migraciones que una base documental.
+**PostgreSQL.** The data is relational: models, prices with history and, later, requests and teams. The analytics will need SQL aggregations. If multi-team support arrives (S4), Row-Level Security is an option for isolating data.
+*Cost:* more schema and migration discipline than a document database.
 
-**OpenRouter.** Una sola API para acceder a GPT, Claude, Gemini, DeepSeek y muchos más, con un catálogo de precios que se puede sincronizar. Así no tengo que mantener cinco integraciones distintas desde el principio.
-*Coste:* dependencia de un intermediario. Además, OpenRouter tiene su propio enrutado automático, lo que me obliga a tener claro dónde aporta valor este proyecto: políticas, presupuestos, privacidad y decisiones explicables.
+**OpenRouter (planned).** One API for GPT, Claude, Gemini, DeepSeek and many more, with a price catalog that can be synced. It avoids maintaining five integrations from the start.
+*Cost:* depending on an intermediary. OpenRouter also has its own automatic routing, so this project needs to be clear about where it adds value: rules, budgets, privacy and explainable decisions.
 
-**Ollama.** Modelos locales con coste por petición cero y, sobre todo, privacidad: hay datos que no deberían salir nunca de la infraestructura propia. Usa la misma API que OpenRouter, así que el diseño de proveedores no cambia.
-*Coste:* un servicio en la nube no puede alcanzar el `localhost` de un usuario. Por eso hay que pensar el despliegue (self-hosted, túnel o agente) antes de prometer la funcionalidad.
+**Ollama (planned).** Local models with zero cost per request and, above all, privacy: some data should never leave your own infrastructure.
+*Cost:* a cloud service cannot reach a user's `localhost`. Deployment (self-hosted, tunnel or agent) has to be designed before promising this feature.
+
+## How I used AI
+
+I used Claude Code, GitHub Copilot and other assistants to speed up implementation, run technical audits and explore design alternatives.
+
+Product definition, architecture decisions, the roadmap, technical constraints and the validation of each sprint were my responsibility.
+
+AI let me delegate part of the code writing while I kept control over the design and my understanding of the system.
 
 ## Roadmap
 
-| Fase | Objetivo | Estado |
+| Phase | Goal | Status |
 |---|---|---|
-| **Prototipo** | Interfaz de decisión, dashboard y enrutado por reglas de extremo a extremo | ✅ |
-| **S0 · Fundaciones** | Configuración, logging, `/api/v1`, Docker, contrato OpenAPI | ✅ |
-| **S0.5 · Producto** | Playground, navegación honesta, datos de ejemplo señalizados | ✅ |
-| **S1 · Persistencia** | PostgreSQL, SQLAlchemy async, Alembic, catálogo de modelos con histórico de precios, página Models | ✅ |
-| **S2 · Ejecución real** | Router sobre el catálogo persistente, OpenRouter, streaming, registro de uso y coste reales, tipos generados | 🎯 |
-| **S3 · Local e híbrido** | Ollama, health checks, cadenas de fallback, política de privacidad | 🎯 |
-| **S4 · Multi-equipo** | Autenticación, organizaciones, API keys, límites de uso | 🎯 |
-| **S5 · Router v2** | Puntuación coste/calidad/latencia, clasificador, evaluación con dataset propio | 🎯 |
-| **S6 · Analítica** | Dashboard real, presupuestos y alertas, ahorro medido | 🎯 |
+| **Prototype** | Decision interface, dashboard and rule-based routing end to end | ✅ |
+| **S0 · Foundations** | Configuration, logging, `/api/v1`, Docker, OpenAPI contract | ✅ |
+| **S0.5 · Product** | Playground, honest navigation, clearly labeled sample data | ✅ |
+| **S1 · Persistence** | PostgreSQL, async SQLAlchemy, Alembic, model catalog with price history, Models page | ✅ |
+| **S1.5 · Portfolio and open source** | Documentation, license, CI and release preparation | 🚧 |
+| **S2 · Real execution** | Router on top of the persistent catalog, OpenRouter, streaming, real usage and cost tracking, generated types | 🎯 |
+| **S3 · Local and hybrid** | Ollama, health checks, fallback chains, privacy policy | 🎯 |
+| **S4 · Multi-team** | Authentication, organizations, API keys, usage limits | 🎯 |
+| **S5 · Router v2** | Cost/quality/latency scoring, classifier, evaluation with an own dataset | 🎯 |
+| **S6 · Analytics** | Real dashboard, budgets and alerts, measured savings | 🎯 |
 
-## Lecciones aprendidas
+## Lessons learned
 
-Algunas cosas que este proyecto me ha enseñado, la mayoría equivocándome primero:
+- **Keyword rules have a clear limit.** The engine picks the first rule that matches. "Hazme un resumen de este bug" ("summarize this bug for me") goes to the programming model because that rule comes before the summary rule. Going further requires classifying the task, not just looking for words.
+- **Savings need a reference point.** The dashboard used to show "savings" without saying compared to what. It now states the baseline: what it would have cost to always use the reference model.
+- **Duplicating the catalog broke the interface.** In S0 I moved it to the backend. Since S1, three sources of model data coexist for now (the router's internal catalog, PostgreSQL and the dashboard's sample data); unifying them is part of S2.
+- **An unchecked contract drifts.** The OpenAPI schema is exported and a test fails if it no longer matches the API. Frontend types are still written by hand.
+- **Next.js public variables are fixed at build time.** In Docker, the backend URL ends up inside the image; changing it means rebuilding.
+- **What works on my machine can fail on a clean clone.** `tsc` failed without the types Next.js generates, and pytest loaded ROS 2 plugins installed on the system. Now `npm run typecheck` runs `next typegen` first, and pytest disables plugin autoloading.
+- **A permanent redirect is hard to undo.** `/chat` answered with a 308, which browsers cache; I changed it to a temporary redirect so the route can be reused.
 
-- **Lo difícil del routing es clasificar la tarea, no llamar a la API.** Mi primer motor elige el modelo con palabras clave y gana la primera regla que coincide. Funciona en la demo, pero "resume este bug" acaba en el modelo de programación solo por el orden de las reglas. Es útil como punto de partida, pero no basta para un producto real.
-- **"Ahorro" sin línea base es una métrica de vanidad.** ¿Ahorro respecto a qué? Si no defines contra qué comparas (por ejemplo, "lo que habría costado usar siempre el modelo premium"), el número del dashboard no significa nada.
-- **Sin un dataset de evaluación, "elegir el mejor modelo" no se puede demostrar.** Antes de sofisticar el algoritmo necesito poder medir si una decisión fue buena.
-- **Duplicar datos entre frontend y backend sale caro.** Tenía el catálogo de modelos definido en los dos lados, y un modelo nuevo en el backend rompía la interfaz. Ahora hay una única fuente de verdad, y la UI está diseñada para tolerar lo que no conoce.
-- **Los contratos se rompen en silencio.** Los tipos del frontend se copiaban a mano del backend. Ahora el esquema OpenAPI se exporta y un test falla si se queda desactualizado: prefiero que falle un test a que falle un usuario.
-- **La configuración también tiene un "cuándo".** Las variables públicas de Next.js se incrustan al compilar, no al arrancar. Parece un detalle hasta que despliegas con Docker y la URL del backend está congelada en la imagen.
-- **Las fundaciones son baratas al principio y carísimas después.** Configuración centralizada, logging estructurado y versionado de API me costaron un sprint con dos endpoints. Con veinte habría sido una migración.
+## Running it
 
-## Capturas
-
-<!--
-Guarda las imágenes en docs/screenshots/ y descomenta cada línea:
-
-![Playground: decisión explicada](docs/screenshots/playground.png)
-![Dashboard de consumo](docs/screenshots/dashboard.png)
-![Demo: del prompt a la decisión](docs/screenshots/demo.gif)
--->
-
-*Próximamente: capturas del Playground y del dashboard, y un GIF del flujo completo.*
-
-## Cómo ejecutarlo
-
-Con Docker:
+With Docker:
 
 ```bash
 git clone https://github.com/sofia-casado-sainz/ai-router-dashboard.git
 cd ai-router-dashboard
-cp .env.example .env          # define POSTGRES_PASSWORD
+cp .env.example .env          # set POSTGRES_PASSWORD
 docker compose up --build
 ```
 
-Abre <http://localhost:3000/playground> y prueba con *"Diseña una arquitectura cloud escalable"*. La API está documentada en <http://localhost:8010/docs>.
+Open <http://localhost:3000/playground> and try *"Diseña una arquitectura cloud escalable"*. The API is documented at <http://localhost:8010/docs>.
 
-Sin Docker (Python ≥ 3.11, Node ≥ 20 y un PostgreSQL accesible con las variables `POSTGRES_*` de `.env`):
+Without Docker (Python ≥ 3.11, Node ≥ 20 and a PostgreSQL reachable with the `POSTGRES_*` variables in `.env`):
 
 ```bash
 cd backend && python -m venv .venv && source .venv/bin/activate
@@ -173,20 +161,18 @@ pip install -e ".[dev]"
 alembic upgrade head && python scripts/seed_models.py
 python main.py
 
-cd frontend && npm install && npm run dev      # en otra terminal
+cd frontend && npm install && npm run dev      # in another terminal
 ```
 
-Variables de entorno, tests, contrato y estructura del código: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+Environment variables, tests, the API contract and code structure: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) (in Spanish).
 
-## Licencia
+## License
 
-<!-- Elige una licencia y añade el archivo LICENSE (por ejemplo, MIT: https://choosealicense.com/licenses/mit/). -->
-Pendiente de definir.
+MIT. See [LICENSE](LICENSE).
 
-## Contacto
+## Author
 
-Si te interesa el proyecto, tienes preguntas sobre las decisiones de diseño o quieres hablar de una oportunidad, escríbeme.
+Sofía Casado Sainz, AI Engineer focused on AI agents, automation and decision systems.
 
 - **GitHub:** [@sofia-casado-sainz](https://github.com/sofia-casado-sainz)
-- **LinkedIn:** [sofia](https://www.linkedin.com/in/sofia-casado-sainz-4094a028a?utm_source=share_via&utm_content=profile&utm_medium=member_ios)
-
+- **LinkedIn:** [sofia-casado-sainz](https://www.linkedin.com/in/sofia-casado-sainz-4094a028a)
