@@ -11,7 +11,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 from sqlalchemy.engine import URL
 
@@ -54,6 +54,12 @@ class Settings(BaseSettings):
     postgres_db: str = "ai_router"
     postgres_user: str = "ai_router"
     postgres_password: str = ""
+
+    # Ejecución de modelos (ADR-0001). Desactivada por defecto: ejecutar modelos
+    # cuesta dinero, y POST /api/v1/completions responde 503 mientras esté apagada.
+    completions_enabled: bool = False
+    # Timeout por defecto de cada ejecución, en segundos.
+    completions_timeout_seconds: float = Field(default=60.0, gt=0)
 
     @field_validator("log_level", mode="before")
     @classmethod

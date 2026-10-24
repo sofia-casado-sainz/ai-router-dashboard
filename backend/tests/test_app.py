@@ -1,7 +1,9 @@
 import json
 import logging
 
+import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 from core.config import Settings
 from core.logging import JsonFormatter
@@ -42,6 +44,28 @@ def test_cors_allows_configured_frontend() -> None:
     )
 
     assert response.headers["access-control-allow-origin"] == "https://app.example.com"
+
+
+def test_completions_are_disabled_by_default() -> None:
+    settings = Settings(_env_file=None)
+
+    assert settings.completions_enabled is False
+    assert settings.completions_timeout_seconds == 60.0
+
+
+def test_completions_settings_are_read_from_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("COMPLETIONS_ENABLED", "true")
+    monkeypatch.setenv("COMPLETIONS_TIMEOUT_SECONDS", "12.5")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.completions_enabled is True
+    assert settings.completions_timeout_seconds == 12.5
+
+
+def test_completions_timeout_must_be_positive() -> None:
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, completions_timeout_seconds=0)
 
 
 def test_settings_parse_comma_separated_origins() -> None:

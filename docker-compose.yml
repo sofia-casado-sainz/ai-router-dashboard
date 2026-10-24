@@ -31,6 +31,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD en .env}
       # Carga el catálogo de modelos de ejemplo al arrancar (idempotente).
       SEED_DATABASE: ${SEED_DATABASE:-true}
+      # Ejecución de modelos (ADR-0001): desactivada salvo que se active en .env.
+      COMPLETIONS_ENABLED: ${COMPLETIONS_ENABLED:-false}
     ports:
       - "${BACKEND_PORT:-8010}:8010"
     depends_on:
