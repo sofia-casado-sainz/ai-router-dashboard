@@ -13,6 +13,7 @@ from typing import Annotated, Literal
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+from sqlalchemy.engine import URL
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 
@@ -45,6 +46,15 @@ class Settings(BaseSettings):
     # Orígenes adicionales permitidos, separados por comas.
     cors_origins: Annotated[list[str], NoDecode] = ["http://127.0.0.1:3000"]
 
+    # PostgreSQL. Si DATABASE_URL está definida, tiene prioridad sobre POSTGRES_*.
+    # Comparte las variables POSTGRES_* con docker compose (.env de la raíz).
+    database_url: str | None = None
+    postgres_host: str = "localhost"
+    postgres_port: int = 5432
+    postgres_db: str = "ai_router"
+    postgres_user: str = "ai_router"
+    postgres_password: str = ""
+
     @field_validator("log_level", mode="before")
     @classmethod
     def _uppercase_log_level(cls, value: object) -> object:
@@ -66,6 +76,21 @@ class Settings(BaseSettings):
     @property
     def is_development(self) -> bool:
         return self.environment == "development"
+
+    @property
+    def sqlalchemy_database_url(self) -> str:
+        """URL para SQLAlchemy con driver asíncrono (asyncpg)."""
+        if self.database_url:
+            return self.database_url
+        url = URL.create(
+            "postgresql+asyncpg",
+            username=self.postgres_user,
+            password=self.postgres_password or None,
+            host=self.postgres_host,
+            port=self.postgres_port,
+            database=self.postgres_db,
+        )
+        return url.render_as_string(hide_password=False)
 
 
 @lru_cache

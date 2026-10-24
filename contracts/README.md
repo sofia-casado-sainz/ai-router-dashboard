@@ -19,4 +19,4 @@ El test `backend/tests/test_contract.py` falla si `openapi.json` no coincide con
 
 `frontend/src/types/api.ts` dejará de mantenerse a mano y se generará desde `openapi.json` (por ejemplo, con `openapi-typescript`).
 
-Los `operationId` ya son estables (`get_health`, `route_prompt`), así que los nombres generados no cambiarán al refactorizar funciones en Python.
+Los `operationId` ya son estables (`get_health`, `route_prompt`, `list_models`), así que los nombres generados no cambiarán al refactorizar funciones en Python.

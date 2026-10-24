@@ -8,7 +8,7 @@
 ![Python](https://img.shields.io/badge/Python-3.11+-3776AB)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6)
 
-> **Estado actual.** El flujo completo funciona de extremo a extremo: interfaz → API → motor de enrutado → decisión explicada en pantalla. Lo que todavía no es real: la decisión se toma con reglas (no con un clasificador), los precios son simulados y las métricas del dashboard son datos de ejemplo. Aún no se llama a ningún proveedor de IA. Lo detallo más abajo, en [Qué funciona hoy](#qué-funciona-hoy).
+> **Estado actual.** El flujo completo funciona de extremo a extremo: interfaz → API → motor de enrutado → decisión explicada en pantalla. Desde el Sprint S1, el catálogo de modelos y sus precios viven en PostgreSQL y se consultan en la página Models. Lo que todavía no es real: la decisión se toma con reglas (no con un clasificador), el router aún usa su propio catálogo interno con precios simulados y las métricas del dashboard son datos de ejemplo. Aún no se llama a ningún proveedor de IA. Lo detallo más abajo, en [Qué funciona hoy](#qué-funciona-hoy).
 
 ---
 
@@ -27,11 +27,11 @@ Ninguna de las dos es una decisión: es la ausencia de una. Este proyecto intent
 
 ## Por qué lo estoy construyendo
 
-<!-- Esta sección es personal: ajústala con tus propias palabras y experiencias. -->
+Quería aprovechar mejor las IAs que uso para estudiar, programar y construir proyectos. El ecosistema cambia constantemente: aparecen modelos nuevos, cambian los precios y cambian las capacidades.
 
-Empecé este proyecto porque tenía el problema delante cada día: varias pestañas abiertas con distintos asistentes y ningún criterio claro para decidir a cuál preguntar qué. Me di cuenta de que "qué modelo uso" es, en el fondo, un problema de ingeniería: hay restricciones (presupuesto, privacidad, latencia), hay incertidumbre (¿es esta tarea difícil?) y hay que tomar una decisión en milisegundos.
+AI Router nace primero como una herramienta para centralizar esa decisión para mí mismo, y después como una plataforma que pueda ayudar a otras personas con el mismo problema.
 
-Quería un proyecto que me obligara a pensar como se piensa un producto real, no solo a programar pantallas:
+Como proyecto, también quería que me obligara a trabajar como en un producto real:
 
 - **Arquitectura full stack de verdad**: un frontend y un backend separados, con un contrato entre ellos que no se rompa en silencio.
 - **El routing como problema de decisión**: cómo estimar la complejidad de una tarea, cómo comparar calidad y coste, y cómo explicar al usuario por qué se eligió un modelo.
@@ -44,10 +44,11 @@ flowchart LR
     U([Usuario]) --> FE[Frontend<br/>Next.js]
     FE -->|POST /api/v1/route| BE[Backend<br/>FastAPI]
     BE --> RE{{Motor de<br/>enrutado}}
-    RE --> CAT[(Catálogo<br/>de modelos)]
+    RE --> CAT[(Catálogo interno<br/>del router)]
     RE -. próximamente .-> OR[OpenRouter<br/>GPT · Claude · Gemini · DeepSeek]
     RE -. próximamente .-> OL[Ollama<br/>modelos locales]
-    BE -. próximamente .-> DB[(PostgreSQL)]
+    BE -->|GET /api/v1/models| DB[(PostgreSQL<br/>catálogo de modelos)]
+    RE -. S2 .-> DB
 ```
 
 <sub>Líneas continuas: funciona hoy. Discontinuas: diseñado, pendiente de implementar.</sub>
@@ -55,7 +56,7 @@ flowchart LR
 - **Frontend (Next.js).** La parte que ve el usuario: un Playground donde describes una tarea y un dashboard de consumo y costes. Cada decisión muestra *qué* modelo se eligió y *por qué*: complejidad estimada, coste previsto y el motivo de la decisión.
 - **Backend (FastAPI).** Recibe la petición, la valida y se la pasa al motor de enrutado. Expone una API versionada (`/api/v1`) y documentada automáticamente con OpenAPI.
 - **Motor de enrutado.** El corazón del proyecto. Hoy analiza el prompt con reglas y estima su complejidad y su coste. El objetivo es que filtre los modelos válidos (contexto, privacidad, presupuesto) y puntúe los candidatos equilibrando calidad, coste y latencia.
-- **Base de datos (PostgreSQL).** Ya está preparada en Docker. Guardará el catálogo de modelos y sus precios, el historial de peticiones y el consumo real por equipo.
+- **Base de datos (PostgreSQL).** Desde S1 guarda el catálogo de modelos y su histórico de precios, con migraciones de Alembic y acceso asíncrono (SQLAlchemy + asyncpg). La página Models lo consulta a través de la API. El router todavía no lo usa: se conectará en S2. Más adelante guardará también el historial de peticiones y el consumo real por equipo.
 - **Proveedores de IA.** OpenRouter dará acceso a los modelos comerciales con una sola integración, y Ollama a los modelos locales. Los dos hablan el mismo protocolo (compatible con OpenAI), así que un único adaptador sirve para ambos.
 
 Así es una decisión real del sistema hoy:
@@ -75,14 +76,16 @@ Motivo:       Arquitectura software avanzada  [arquitectura]
 - Playground conectado al backend real, con estados de carga, error y reintento.
 - Tarjeta de decisión: modelo, proveedor, complejidad, coste estimado y motivo.
 - Motor de enrutado por reglas, con estimación de complejidad y coste.
-- Catálogo de modelos como única fuente de verdad en el backend. La interfaz no se rompe si aparece un modelo nuevo.
+- Catálogo persistente de modelos en PostgreSQL: proveedor, ventana de contexto, estado y precio vigente, con histórico de precios. Se expone en `GET /api/v1/models` y se muestra en la página Models.
+- Migraciones con Alembic y un seed idempotente con modelos de ejemplo.
+- La interfaz no se rompe si el backend devuelve un modelo que no conoce.
 - API versionada (`/api/v1`), configuración centralizada y logs estructurados en JSON.
 - Contrato OpenAPI exportado y protegido por un test.
-- Docker Compose con frontend, backend y PostgreSQL.
+- Docker Compose con frontend, backend y PostgreSQL; el backend aplica las migraciones y el seed al arrancar.
 - Dashboard con métricas *de ejemplo*: el diseño es real, los datos todavía no.
 
-**🚧 En desarrollo**
-- Persistencia en PostgreSQL y catálogo de modelos con precios reales.
+**🔜 Siguiente (S2)**
+- Conectar el router al catálogo persistente, para que haya una sola fuente de verdad de modelos y precios.
 - Tipos TypeScript generados automáticamente desde OpenAPI.
 
 **🎯 Objetivos**
@@ -118,8 +121,8 @@ No elegí las tecnologías por moda. Esto es lo que me aporta cada una y lo que 
 | **Prototipo** | Interfaz de decisión, dashboard y enrutado por reglas de extremo a extremo | ✅ |
 | **S0 · Fundaciones** | Configuración, logging, `/api/v1`, Docker, contrato OpenAPI | ✅ |
 | **S0.5 · Producto** | Playground, navegación honesta, datos de ejemplo señalizados | ✅ |
-| **S1 · Persistencia** | PostgreSQL, migraciones, catálogo con precios reales, tipos generados | 🚧 |
-| **S2 · Ejecución real** | OpenRouter, streaming, registro de uso y coste reales | 🎯 |
+| **S1 · Persistencia** | PostgreSQL, SQLAlchemy async, Alembic, catálogo de modelos con histórico de precios, página Models | ✅ |
+| **S2 · Ejecución real** | Router sobre el catálogo persistente, OpenRouter, streaming, registro de uso y coste reales, tipos generados | 🎯 |
 | **S3 · Local e híbrido** | Ollama, health checks, cadenas de fallback, política de privacidad | 🎯 |
 | **S4 · Multi-equipo** | Autenticación, organizaciones, API keys, límites de uso | 🎯 |
 | **S5 · Router v2** | Puntuación coste/calidad/latencia, clasificador, evaluación con dataset propio | 🎯 |
@@ -162,11 +165,13 @@ docker compose up --build
 
 Abre <http://localhost:3000/playground> y prueba con *"Diseña una arquitectura cloud escalable"*. La API está documentada en <http://localhost:8010/docs>.
 
-Sin Docker (Python ≥ 3.11 y Node ≥ 20):
+Sin Docker (Python ≥ 3.11, Node ≥ 20 y un PostgreSQL accesible con las variables `POSTGRES_*` de `.env`):
 
 ```bash
 cd backend && python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]" && python main.py
+pip install -e ".[dev]"
+alembic upgrade head && python scripts/seed_models.py
+python main.py
 
 cd frontend && npm install && npm run dev      # en otra terminal
 ```

@@ -29,3 +29,26 @@ export interface RouteResponse {
 export interface HealthResponse {
   status: "ok";
 }
+
+/** Precio vigente de un modelo, por millón de tokens. */
+export interface ModelPriceResponse {
+  input_cost_per_million: number;
+  output_cost_per_million: number;
+  /** Código ISO 4217. */
+  currency: string;
+}
+
+export interface ModelResponse {
+  id: string;
+  provider: string;
+  model_key: string;
+  display_name: string;
+  context_window: number;
+  active: boolean;
+  current_price: ModelPriceResponse | null;
+}
+
+/** Respuesta de GET /api/v1/models (operationId `list_models`). */
+export interface ModelListResponse {
+  models: ModelResponse[];
+}

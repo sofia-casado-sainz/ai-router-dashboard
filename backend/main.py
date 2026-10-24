@@ -9,6 +9,7 @@ from fastapi.routing import APIRoute
 from api.routes import router
 from core.config import Settings, get_settings
 from core.logging import configure_logging
+from database.session import create_engine, create_session_factory
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,9 @@ def _operation_id(route: APIRoute) -> str:
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(settings.log_level)
+    # El motor no conecta al crearse: la app arranca aunque la base de datos no esté
+    # disponible, y solo los endpoints que la usan responden 503.
+    engine = create_engine(settings)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
@@ -29,6 +33,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             extra={"environment": settings.environment, "version": settings.app_version},
         )
         yield
+        await engine.dispose()
         logger.info("Aplicación detenida")
 
     app = FastAPI(
@@ -46,6 +51,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["Content-Type"],
     )
 
+    app.state.session_factory = create_session_factory(engine)
     app.include_router(router, prefix=settings.api_prefix)
     return app
 

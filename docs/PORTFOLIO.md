@@ -13,9 +13,9 @@
 
 ## El punto de partida
 
-<!-- Ajusta esta sección con tu experiencia real. -->
+Quería aprovechar mejor las IAs que uso para estudiar, programar y construir proyectos. El ecosistema cambia constantemente: aparecen modelos nuevos, cambian los precios y cambian las capacidades.
 
-Hubo un momento en el que tenía abiertos cuatro asistentes de IA a la vez y ningún criterio para decidir a cuál preguntar qué. Para un correo rápido usaba el mismo modelo que para diseñar un sistema, y pagaba lo mismo por las dos cosas. Otras veces hacía lo contrario: probaba con el más barato, la respuesta no servía y acababa repitiéndolo todo con otro.
+AI Router nace primero como una herramienta para centralizar esa decisión para mí mismo, y después como una plataforma que pueda ayudar a otras personas con el mismo problema.
 
 Me di cuenta de que no era un problema de herramientas, sino de decisión. Cada modelo tiene un precio, una ventana de contexto y unos puntos fuertes distintos. Algunos se pueden ejecutar en local, gratis y sin que los datos salgan del ordenador. Elegir bien depende de la tarea, del presupuesto y de lo sensible que sea la información. Esa elección se puede automatizar.
 
