@@ -32,6 +32,11 @@ class ModelRecord(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         # abierto servido por OpenRouter y por Ollama).
         UniqueConstraint("provider", "model_key"),
         CheckConstraint("context_window > 0", name="context_window_positive"),
+        # Un modelo es ejecutable con ambos campos o con ninguno, nunca a medias.
+        CheckConstraint(
+            "(inference_provider IS NULL) = (provider_model_id IS NULL)",
+            name="execution_target_complete",
+        ),
     )
 
     # Proveedor del modelo como slug en minúsculas: openai, anthropic, ollama…
@@ -43,6 +48,11 @@ class ModelRecord(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     context_window: Mapped[int] = mapped_column(Integer)
     # Si el router puede usarlo.
     active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
+    # Sistema que ejecuta el modelo (openrouter, ollama, fake…), distinto del vendor
+    # (`provider`). NULL: el modelo todavía no se puede ejecutar (ADR-0001).
+    inference_provider: Mapped[str | None] = mapped_column(String(64), default=None)
+    # Identificador del modelo en ese sistema de ejecución.
+    provider_model_id: Mapped[str | None] = mapped_column(String(255), default=None)
 
     prices: Mapped[list[ModelPriceRecord]] = relationship(
         back_populates="model", cascade="all, delete-orphan", passive_deletes=True

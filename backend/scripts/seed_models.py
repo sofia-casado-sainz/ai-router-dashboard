@@ -27,7 +27,8 @@ async def run() -> None:
     finally:
         await engine.dispose()
     print(
-        f"Seed completado: {result.models_created} modelos y {result.prices_created} precios nuevos."
+        f"Seed completado: {result.models_created} modelos y {result.prices_created} precios nuevos; "
+        f"{result.execution_targets_filled} modelos existentes con ejecución completada."
     )
 
 

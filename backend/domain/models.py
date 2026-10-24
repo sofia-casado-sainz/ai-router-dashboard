@@ -25,6 +25,9 @@ class CatalogModel:
     context_window: int
     active: bool
     prices: tuple[ModelPrice, ...]
+    # Dónde se ejecuta (ADR-0001). None: todavía no es ejecutable.
+    inference_provider: str | None = None
+    provider_model_id: str | None = None
 
     def price_at(self, moment: datetime) -> ModelPrice | None:
         """Precio vigente en `moment`: el de `valid_from` más reciente que no sea posterior."""

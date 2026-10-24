@@ -2,7 +2,8 @@
 
 Los precios y contextos son datos de ejemplo, no tarifas reales de los proveedores.
 El seed es idempotente: solo inserta lo que falta y nunca sobrescribe cambios
-hechos a mano (por ejemplo, desactivar un modelo).
+hechos a mano (por ejemplo, desactivar un modelo). En modelos que ya existen,
+solo rellena `inference_provider` y `provider_model_id` si ambos están vacíos.
 """
 
 from __future__ import annotations
@@ -19,6 +20,9 @@ from database.models import ModelPriceRecord, ModelRecord
 SEED_CURRENCY = "USD"
 # Fecha fija: así el seed sabe si el precio ya está cargado.
 SEED_VALID_FROM = datetime(2026, 1, 1, tzinfo=UTC)
+# Los modelos de ejemplo ejecutables se ejecutan con el proveedor simulado (ADR-0001)
+# hasta que exista la integración con OpenRouter.
+SAMPLE_INFERENCE_PROVIDER = "fake"
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,16 +34,39 @@ class SeedModel:
     active: bool
     input_cost_per_million: Decimal
     output_cost_per_million: Decimal
+    # None: el modelo todavía no es ejecutable.
+    inference_provider: str | None = None
+    provider_model_id: str | None = None
+
+
+def _executable(
+    provider: str,
+    model_key: str,
+    display_name: str,
+    context_window: int,
+    input_cost: str,
+    output_cost: str,
+) -> SeedModel:
+    """Modelo de ejemplo activo y ejecutable con el proveedor simulado."""
+    return SeedModel(
+        provider,
+        model_key,
+        display_name,
+        context_window,
+        True,
+        Decimal(input_cost),
+        Decimal(output_cost),
+        inference_provider=SAMPLE_INFERENCE_PROVIDER,
+        provider_model_id=model_key,
+    )
 
 
 SEED_MODELS: tuple[SeedModel, ...] = (
-    SeedModel("openai", "gpt-5", "GPT-5", 256_000, True, Decimal("2.00"), Decimal("8.00")),
-    SeedModel(
-        "anthropic", "claude-sonnet", "Claude Sonnet", 200_000, True, Decimal("2.50"), Decimal("12.00")
-    ),
-    SeedModel("google", "gemini", "Gemini", 1_000_000, True, Decimal("1.00"), Decimal("4.00")),
-    SeedModel("deepseek", "deepseek", "DeepSeek", 128_000, True, Decimal("0.20"), Decimal("0.80")),
-    # Inactivo hasta que exista la integración con Ollama (Sprint S3).
+    _executable("openai", "gpt-5", "GPT-5", 256_000, "2.00", "8.00"),
+    _executable("anthropic", "claude-sonnet", "Claude Sonnet", 200_000, "2.50", "12.00"),
+    _executable("google", "gemini", "Gemini", 1_000_000, "1.00", "4.00"),
+    _executable("deepseek", "deepseek", "DeepSeek", 128_000, "0.20", "0.80"),
+    # Inactivo y sin ejecución hasta que exista la integración con Ollama (Sprint S3).
     SeedModel("ollama", "ollama-local", "Ollama Local", 32_768, False, Decimal("0"), Decimal("0")),
 )
 
@@ -48,10 +75,12 @@ SEED_MODELS: tuple[SeedModel, ...] = (
 class SeedResult:
     models_created: int
     prices_created: int
+    # Modelos existentes en los que se rellenaron inference_provider y provider_model_id.
+    execution_targets_filled: int = 0
 
 
 async def seed_model_catalog(session: AsyncSession) -> SeedResult:
-    models_created = prices_created = 0
+    models_created = prices_created = execution_targets_filled = 0
 
     for item in SEED_MODELS:
         model = await session.scalar(
@@ -66,10 +95,21 @@ async def seed_model_catalog(session: AsyncSession) -> SeedResult:
                 display_name=item.display_name,
                 context_window=item.context_window,
                 active=item.active,
+                inference_provider=item.inference_provider,
+                provider_model_id=item.provider_model_id,
             )
             session.add(model)
             await session.flush()
             models_created += 1
+        elif (
+            item.inference_provider is not None
+            and model.inference_provider is None
+            and model.provider_model_id is None
+        ):
+            # Bases de datos anteriores a la migración 0002: completar sin sobrescribir.
+            model.inference_provider = item.inference_provider
+            model.provider_model_id = item.provider_model_id
+            execution_targets_filled += 1
 
         price_exists = await session.scalar(
             select(ModelPriceRecord.id).where(
@@ -90,4 +130,4 @@ async def seed_model_catalog(session: AsyncSession) -> SeedResult:
             prices_created += 1
 
     await session.commit()
-    return SeedResult(models_created, prices_created)
+    return SeedResult(models_created, prices_created, execution_targets_filled)

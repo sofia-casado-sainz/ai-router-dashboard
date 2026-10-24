@@ -43,3 +43,29 @@ async def test_list_models_filters_by_active_flag(session: AsyncSession) -> None
 
 async def test_list_models_with_empty_catalog(session: AsyncSession) -> None:
     assert await ModelRepository(session).list_models() == []
+
+
+async def test_get_by_key_returns_model_with_execution_target(session: AsyncSession) -> None:
+    await seed_model_catalog(session)
+
+    model = await ModelRepository(session).get_by_key("openai", "gpt-5")
+
+    assert model is not None
+    assert model.display_name == "GPT-5"
+    assert (model.inference_provider, model.provider_model_id) == ("fake", "gpt-5")
+    assert len(model.prices) == 1
+
+
+async def test_get_by_key_returns_none_for_unknown_model(session: AsyncSession) -> None:
+    await seed_model_catalog(session)
+
+    assert await ModelRepository(session).get_by_key("openai", "gpt") is None
+
+
+async def test_list_models_includes_execution_target(session: AsyncSession) -> None:
+    await seed_model_catalog(session)
+
+    models = {m.model_key: m for m in await ModelRepository(session).list_models()}
+
+    assert models["deepseek"].inference_provider == "fake"
+    assert models["ollama-local"].inference_provider is None

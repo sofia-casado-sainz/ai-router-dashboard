@@ -29,6 +29,15 @@ class ModelRepository:
         records = await self._session.scalars(statement)
         return [_to_domain(record) for record in records]
 
+    async def get_by_key(self, provider: str, model_key: str) -> CatalogModel | None:
+        """Un modelo por su vendor y su clave, con su histórico de precios; None si no existe."""
+        record = await self._session.scalar(
+            select(ModelRecord)
+            .options(selectinload(ModelRecord.prices))
+            .where(ModelRecord.provider == provider, ModelRecord.model_key == model_key)
+        )
+        return None if record is None else _to_domain(record)
+
 
 def _to_domain(record: ModelRecord) -> CatalogModel:
     return CatalogModel(
@@ -39,6 +48,8 @@ def _to_domain(record: ModelRecord) -> CatalogModel:
         context_window=record.context_window,
         active=record.active,
         prices=tuple(_price_to_domain(price) for price in record.prices),
+        inference_provider=record.inference_provider,
+        provider_model_id=record.provider_model_id,
     )
 
 
